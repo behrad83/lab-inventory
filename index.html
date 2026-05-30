@@ -116,8 +116,32 @@ tr:hover td{background:#0e1018}
     <input class="login-inp" id="loginPass" placeholder="رمز عبور" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="login-btn" onclick="doLogin()">ورود به سیستم</button>
     <div class="login-err" id="loginErr"></div>
-    <div style="margin-top:18px;font-size:11px;color:#2e3350">
-      کاربر پیش‌فرض: <span style="color:#4f8ef7">admin</span> / رمز: <span style="color:#4f8ef7">lab1234</span>
+    <div style="margin-top:16px;border-top:1px solid #1e2235;padding-top:16px">
+      <button onclick="showRegister()" style="background:none;border:none;color:#4f8ef7;font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">ثبت‌نام / درخواست دسترسی</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REGISTER ══════════════════════════════════════ -->
+<div id="registerScreen" class="hidden" style="position:fixed;inset:0;background:linear-gradient(135deg,#0b0d14 0%,#131627 100%);display:flex;align-items:center;justify-content:center;z-index:999">
+  <div class="login-box">
+    <div class="login-logo">📝</div>
+    <div class="login-title">درخواست دسترسی</div>
+    <div class="login-sub">اطلاعات خود را وارد کنید — ادمین تأیید می‌کند</div>
+    <input class="login-inp" id="regName" placeholder="نام و نام خانوادگی">
+    <input class="login-inp" id="regUser" placeholder="نام کاربری (انگلیسی)">
+    <input class="login-inp" id="regPass" placeholder="رمز عبور" type="password">
+    <input class="login-inp" id="regPass2" placeholder="تکرار رمز عبور" type="password">
+    <select class="login-inp" id="regRole" style="cursor:pointer">
+      <option value="">نوع دسترسی درخواستی...</option>
+      <option value="viewer">فقط مشاهده و جستجو</option>
+      <option value="operator">افزودن کالا و جستجو</option>
+      <option value="admin">دسترسی کامل (ادمین)</option>
+    </select>
+    <button class="login-btn" onclick="doRegister()">ارسال درخواست</button>
+    <div class="login-err" id="regErr"></div>
+    <div style="margin-top:16px;border-top:1px solid #1e2235;padding-top:16px">
+      <button onclick="showLogin()" style="background:none;border:none;color:#4f8ef7;font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">← بازگشت به ورود</button>
     </div>
   </div>
 </div>
@@ -135,6 +159,7 @@ tr:hover td{background:#0e1018}
     <div class="nav" onclick="gotoView('add',this)"><span class="nav-icon">➕</span><span>افزودن کالا</span></div>
     <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
     <div class="nav" onclick="gotoView('qr',this)"><span class="nav-icon">⬛</span><span>QR کدها</span></div>
+    <div class="nav" onclick="gotoView('users',this)"><span class="nav-icon">👥</span><span>کاربران</span></div>
     <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
     <div class="sidebar-bottom">
       <div class="user-chip"><div class="user-dot"></div><span id="userLabel">admin</span></div>
@@ -284,6 +309,38 @@ tr:hover td{background:#0e1018}
       <div id="qrGrid" style="display:flex;flex-wrap:wrap;gap:14px"></div>
     </div>
 
+    <!-- ── USERS ── -->
+    <div id="view-users" class="hidden">
+      <div class="page-title">👥 مدیریت کاربران</div>
+
+      <!-- Pending requests -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:14px;color:#f59e0b">⏳ درخواست‌های در انتظار تأیید</div>
+        <div id="pendingList"><div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">درخواستی وجود ندارد</div></div>
+      </div>
+
+      <!-- Active users -->
+      <div class="card">
+        <div style="font-weight:600;font-size:14px;margin-bottom:14px">✅ کاربران فعال</div>
+        <div id="activeUserList"></div>
+        <div style="margin-top:14px;border-top:1px solid #1a1d2e;padding-top:14px">
+          <div style="font-size:12px;color:#5a6080;margin-bottom:10px">افزودن کاربر مستقیم</div>
+          <div class="grid2" style="margin-bottom:10px">
+            <input class="inp" id="newUserName" placeholder="نام کاربری">
+            <input class="inp" id="newUserPass" placeholder="رمز عبور" type="password">
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select class="inp" id="newUserRole">
+              <option value="viewer">فقط مشاهده</option>
+              <option value="operator">افزودن و جستجو</option>
+              <option value="admin">ادمین کامل</option>
+            </select>
+            <button class="btn btn-success btn-sm" onclick="addUserDirect()" style="white-space:nowrap">+ افزودن</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── SETUP ── -->
     <div id="view-setup" class="hidden">
       <div class="page-title">⚙️ تنظیمات و راه‌اندازی آنلاین</div>
@@ -339,7 +396,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbxZGQyd8WU41VhVWKywEIex1VNQluGLTDkIAgonf0pFIAiu1JLSZ8N-U1qPDkchQDkn/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -385,13 +442,26 @@ let items = JSON.parse(localStorage.getItem('lab_items')||'[]');
 let chatHistory = [];
 let currentUser = null;
 
-const USERS = JSON.parse(localStorage.getItem('lab_users')||JSON.stringify([
-  {user:'admin',pass:'lab1234',role:'admin'},
-  {user:'انباردار',pass:'store123',role:'user'}
+let USERS = JSON.parse(localStorage.getItem('lab_users')||JSON.stringify([
+  {user:'admin',pass:'lab1234',role:'admin',name:'مدیر سیستم',active:true},
 ]));
+let PENDING = JSON.parse(localStorage.getItem('lab_pending')||'[]');
+
+const ROLES = {
+  admin:    {label:'ادمین',    color:'#c084fc', perms:['view','add','delete','users','settings']},
+  operator: {label:'اپراتور', color:'#4ade80', perms:['view','add','ai','qr']},
+  viewer:   {label:'مشاهده',  color:'#60a5fa', perms:['view','ai','qr']},
+};
+
+function savePending(){localStorage.setItem('lab_pending',JSON.stringify(PENDING))}
+function canDo(perm){
+  if(!currentUser)return false;
+  const role=ROLES[currentUser.role];
+  return role&&role.perms.includes(perm);
+}
 
 function saveItems(){localStorage.setItem('lab_items',JSON.stringify(items))}
-function saveUsers(){localStorage.setItem('lab_users',JSON.stringify(USERS))}
+function saveUsers(){localStorage.setItem('lab_users',JSON.stringify(USERS));}
 function saveGroqKey(){localStorage.setItem('groqKey',document.getElementById('groqKeyInp').value)}
 function loadGroqKey(){return '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';}
 function saveSheetUrl(){
@@ -415,14 +485,92 @@ function doLogin(){
   document.getElementById('userLabel').textContent=found.user;
   renderDashboard();
   loadFromSheet();
+  // نمایش یا مخفی کردن منو بر اساس دسترسی
+  applyRoleUI();
 }
 function doLogout(){
   currentUser=null;
   document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('registerScreen').classList.add('hidden');
   document.getElementById('app').classList.add('hidden');
   document.getElementById('loginUser').value='';
   document.getElementById('loginPass').value='';
   document.getElementById('loginErr').textContent='';
+}
+
+function showRegister(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('registerScreen').classList.remove('hidden');
+  document.getElementById('regErr').textContent='';
+}
+
+function showLogin(){
+  document.getElementById('registerScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+
+function doRegister(){
+  const name=document.getElementById('regName').value.trim();
+  const user=document.getElementById('regUser').value.trim();
+  const pass=document.getElementById('regPass').value;
+  const pass2=document.getElementById('regPass2').value;
+  const role=document.getElementById('regRole').value;
+  const err=document.getElementById('regErr');
+
+  if(!name||!user||!pass||!role){err.textContent='همه فیلدها الزامی است';return;}
+  if(pass!==pass2){err.textContent='رمز عبور با تکرار آن یکسان نیست';return;}
+  if(pass.length<4){err.textContent='رمز عبور باید حداقل ۴ کاراکتر باشد';return;}
+  if(USERS.find(u=>u.user===user)||PENDING.find(u=>u.user===user)){err.textContent='این نام کاربری قبلاً ثبت شده';return;}
+
+  PENDING.push({id:'p_'+Date.now(),name,user,pass,role,date:new Date().toLocaleDateString('fa-IR'),active:false});
+  savePending();
+
+  // Sync to sheet
+  syncPendingToSheet(PENDING[PENDING.length-1]);
+
+  document.getElementById('registerScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginErr').style.color='#4ade80';
+  document.getElementById('loginErr').textContent='✅ درخواست شما ارسال شد. منتظر تأیید ادمین باشید.';
+  setTimeout(()=>{
+    document.getElementById('loginErr').textContent='';
+    document.getElementById('loginErr').style.color='#f87171';
+  },5000);
+}
+
+function syncPendingToSheet(req){
+  const url=loadSheetUrl();
+  if(!url)return;
+  const cbName='regCb_'+Date.now();
+  const params=new URLSearchParams({
+    action:'addPending',callback:cbName,
+    id:req.id,name:req.name,user:req.user,
+    pass:req.pass,role:req.role,date:req.date
+  });
+  window[cbName]=function(){delete window[cbName];const s=document.getElementById(cbName);if(s)s.remove();};
+  const script=document.createElement('script');
+  script.id=cbName;script.src=url+'?'+params.toString();
+  document.head.appendChild(script);
+}
+
+async function loadPendingFromSheet(){
+  const url=loadSheetUrl();
+  if(!url)return;
+  const cbName='loadPendCb_'+Date.now();
+  window[cbName]=function(data){
+    if(Array.isArray(data)){
+      PENDING=data.filter(d=>d.id&&!d.approved);
+      savePending();
+      if(document.getElementById('view-users')&&!document.getElementById('view-users').classList.contains('hidden')){
+        renderPending();renderActiveUsers();
+      }
+    }
+    delete window[cbName];const s=document.getElementById(cbName);if(s)s.remove();
+  };
+  const script=document.createElement('script');
+  script.id=cbName;
+  script.src=url+'?action=getPending&callback='+cbName+'&t='+Date.now();
+  document.head.appendChild(script);
 }
 
 // ═══════════════════════════════════════════════
@@ -437,6 +585,11 @@ function gotoView(v,el){
   else if(v==='items')renderItems();
   else if(v==='qr')renderQR();
   else if(v==='ai'){}
+  else if(v==='users'){
+    if(!canDo('users')){alert('دسترسی ندارید');return;}
+    renderPending();renderActiveUsers();
+    loadPendingFromSheet();
+  }
   else if(v==='setup'){
     document.getElementById('sheetUrl').value=loadSheetUrl();
     renderUserList();
@@ -910,8 +1063,135 @@ function addUser(){
 function removeUser(i){if(confirm('حذف شود؟')){USERS.splice(i,1);saveUsers();renderUserList()}}
 
 // ═══════════════════════════════════════════════
+//  USER MANAGEMENT
+// ═══════════════════════════════════════════════
+function renderPending(){
+  const el=document.getElementById('pendingList');
+  if(!el)return;
+  if(!PENDING.length){el.innerHTML='<div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">درخواستی وجود ندارد</div>';return;}
+  el.innerHTML=PENDING.map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#0b0d14;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-weight:600;font-size:13px">${p.name}</div>
+        <div style="color:#5a6080;font-size:12px;margin-top:2px">
+          @${p.user} | درخواست: <span style="color:${ROLES[p.role]?.color||'#9aa3c2'}">${ROLES[p.role]?.label||p.role}</span> | ${p.date}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <select onchange="changePendingRole('${p.id}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:5px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
+          <option value="viewer" ${p.role==='viewer'?'selected':''}>فقط مشاهده</option>
+          <option value="operator" ${p.role==='operator'?'selected':''}>اپراتور</option>
+          <option value="admin" ${p.role==='admin'?'selected':''}>ادمین</option>
+        </select>
+        <button class="btn btn-success btn-sm" onclick="approvePending('${p.id}')">✅ تأیید</button>
+        <button class="btn btn-danger btn-sm" onclick="rejectPending('${p.id}')">❌ رد</button>
+      </div>
+    </div>`).join('');
+}
+
+function changePendingRole(id,role){
+  PENDING=PENDING.map(p=>p.id===id?{...p,role}:p);
+  savePending();
+}
+
+function approvePending(id){
+  const p=PENDING.find(x=>x.id===id);
+  if(!p)return;
+  USERS.push({user:p.user,pass:p.pass,role:p.role,name:p.name,active:true});
+  saveUsers();
+  PENDING=PENDING.filter(x=>x.id!==id);
+  savePending();
+  approveInSheet(id);
+  renderPending();renderActiveUsers();
+}
+
+function rejectPending(id){
+  if(!confirm('این درخواست رد شود؟'))return;
+  PENDING=PENDING.filter(x=>x.id!==id);
+  savePending();
+  rejectInSheet(id);
+  renderPending();
+}
+
+function approveInSheet(id){
+  const url=loadSheetUrl();if(!url)return;
+  const cb='appCb_'+Date.now();
+  window[cb]=function(){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();};
+  const s=document.createElement('script');s.id=cb;
+  s.src=url+'?action=approvePending&id='+encodeURIComponent(id)+'&callback='+cb;
+  document.head.appendChild(s);
+}
+
+function rejectInSheet(id){
+  const url=loadSheetUrl();if(!url)return;
+  const cb='rejCb_'+Date.now();
+  window[cb]=function(){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();};
+  const s=document.createElement('script');s.id=cb;
+  s.src=url+'?action=rejectPending&id='+encodeURIComponent(id)+'&callback='+cb;
+  document.head.appendChild(s);
+}
+
+function renderActiveUsers(){
+  const el=document.getElementById('activeUserList');
+  if(!el)return;
+  el.innerHTML=USERS.map((u,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0b0d14;border-radius:10px;margin-bottom:6px">
+      <div>
+        <span style="font-weight:600;font-size:13px">${u.name||u.user}</span>
+        <span style="color:#5a6080;font-size:12px;margin-right:8px">@${u.user}</span>
+        <span style="background:${ROLES[u.role]?.color||'#9aa3c2'}22;color:${ROLES[u.role]?.color||'#9aa3c2'};padding:2px 8px;border-radius:10px;font-size:11px">${ROLES[u.role]?.label||u.role}</span>
+      </div>
+      ${i===0?'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>':`
+      <div style="display:flex;gap:6px;align-items:center">
+        <select onchange="changeUserRole('${u.user}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:4px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
+          <option value="viewer" ${u.role==='viewer'?'selected':''}>مشاهده</option>
+          <option value="operator" ${u.role==='operator'?'selected':''}>اپراتور</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>ادمین</option>
+        </select>
+        <button class="btn btn-danger btn-sm" onclick="removeUser('${u.user}')">حذف</button>
+      </div>`}
+    </div>`).join('');
+}
+
+function changeUserRole(username,role){
+  USERS=USERS.map(u=>u.user===username?{...u,role}:u);
+  saveUsers();renderActiveUsers();
+}
+
+function removeUser(username){
+  if(!confirm('کاربر حذف شود؟'))return;
+  USERS=USERS.filter(u=>u.user!==username);
+  saveUsers();renderActiveUsers();
+}
+
+function addUserDirect(){
+  const user=document.getElementById('newUserName').value.trim();
+  const pass=document.getElementById('newUserPass').value;
+  const role=document.getElementById('newUserRole').value;
+  if(!user||!pass){alert('نام کاربری و رمز الزامی است');return;}
+  if(USERS.find(u=>u.user===user)){alert('این کاربر وجود دارد');return;}
+  USERS.push({user,pass,role,name:user,active:true});
+  saveUsers();
+  document.getElementById('newUserName').value='';
+  document.getElementById('newUserPass').value='';
+  renderActiveUsers();
+}
+
+// ═══════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════
+function applyRoleUI(){
+  const isAdmin=canDo('users');
+  const canAdd=canDo('add');
+  // مخفی کردن منوهای محدود
+  document.querySelectorAll('.nav').forEach(n=>{
+    const txt=n.textContent.trim();
+    if(txt.includes('کاربران'))n.style.display=isAdmin?'flex':'none';
+    if(txt.includes('تنظیمات'))n.style.display=isAdmin?'flex':'none';
+    if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
+  });
+}
+
 document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 </script>
 </body>
