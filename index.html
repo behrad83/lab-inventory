@@ -416,9 +416,22 @@ function doPost(e){
     <div class="form-group">
       <label>آیکون (اختیاری)</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap" id="iconPicker">
-        ${['🧪','🔬','🔧','🧴','💊','🧫','⚗️','🔩','📦','🧲','💡','🌡️'].map(ic=>
-          `<span onclick="selectIcon(this,'${ic}')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">${ic}</span>`
-        ).join('')}
+        <span onclick="selectIcon(this,'🧪')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🧪</span>
+        <span onclick="selectIcon(this,'🔬')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🔬</span>
+        <span onclick="selectIcon(this,'🔧')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🔧</span>
+        <span onclick="selectIcon(this,'🧴')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🧴</span>
+        <span onclick="selectIcon(this,'💊')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">💊</span>
+        <span onclick="selectIcon(this,'🧫')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🧫</span>
+        <span onclick="selectIcon(this,'⚗️')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">⚗️</span>
+        <span onclick="selectIcon(this,'🔩')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🔩</span>
+        <span onclick="selectIcon(this,'📦')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">📦</span>
+        <span onclick="selectIcon(this,'🧲')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🧲</span>
+        <span onclick="selectIcon(this,'💡')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">💡</span>
+        <span onclick="selectIcon(this,'🌡️')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🌡️</span>
+        <span onclick="selectIcon(this,'🖥️')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🖥️</span>
+        <span onclick="selectIcon(this,'💉')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">💉</span>
+        <span onclick="selectIcon(this,'🩺')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🩺</span>
+        <span onclick="selectIcon(this,'🔭')" style="font-size:22px;cursor:pointer;padding:6px;border-radius:8px;border:2px solid transparent" class="icon-opt">🔭</span>
       </div>
     </div>
     <input type="hidden" id="newCatIcon" value="📦">
