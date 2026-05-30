@@ -146,7 +146,13 @@ tr:hover td{background:#0e1018}
 
     <!-- ── DASHBOARD ── -->
     <div id="view-dashboard">
-      <div class="page-title">📊 داشبورد</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div class="page-title" style="margin:0">📊 داشبورد</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="syncStatus" style="font-size:12px;color:#5a6080"></span>
+        <button class="btn btn-primary btn-sm" onclick="loadFromSheet()">🔄 بارگذاری از Sheets</button>
+      </div>
+    </div>
       <div class="grid3" id="statsGrid"></div>
       <div id="lowAlert"></div>
       <div class="card">
@@ -384,7 +390,8 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-function loadSheetUrl(){return localStorage.getItem('sheetUrl')||''}
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyHHp1mpSv5hIR-0Lfa-vnYFptNVHHTIR-JAzh6kw2mpdCFAXHi1Bxc2wVZB_yhnr7L/exec';
+function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
 //  AUTH
@@ -399,6 +406,7 @@ function doLogin(){
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('userLabel').textContent=found.user;
   renderDashboard();
+  loadFromSheet();
 }
 function doLogout(){
   currentUser=null;
@@ -733,8 +741,36 @@ async function syncToSheet(item){
   const url=loadSheetUrl();
   if(!url)return;
   try{
-    await fetch(url,{method:'POST',body:JSON.stringify(item),headers:{'Content-Type':'application/json'}});
+    await fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify(item),headers:{'Content-Type':'text/plain'}});
   }catch(e){console.log('Sync failed:',e)}
+}
+
+async function loadFromSheet(){
+  const url=loadSheetUrl();
+  const statusEl=document.getElementById('syncStatus');
+  if(!url){if(statusEl)statusEl.textContent='لینک Sheet تنظیم نشده';return;}
+  if(statusEl)statusEl.textContent='در حال بارگذاری...';
+  try{
+    const res=await fetch(url+'?t='+Date.now());
+    if(!res.ok)throw new Error('bad response');
+    const data=await res.json();
+    if(Array.isArray(data)&&data.length>0){
+      items=data.map(d=>({
+        id:String(d.id||'item_'+Math.random()),
+        code:String(d.code||''),name:String(d.name||''),desc:String(d.desc||''),
+        cat:String(d.cat||'آزمایشگاه'),qty:Number(d.qty)||0,unit:String(d.unit||'عدد'),
+        shelf:String(d.shelf||'-'),row:String(d.row||'-'),minQty:Number(d.minQty)||0,date:String(d.date||'')
+      }));
+      saveItems();
+      renderDashboard();
+      if(statusEl)statusEl.textContent='✅ '+items.length+' کالا از Google Sheets بارگذاری شد';
+    }else{
+      if(statusEl)statusEl.textContent='⚠️ Sheet خالی است یا داده‌ای ندارد';
+    }
+  }catch(e){
+    if(statusEl)statusEl.textContent='⚠️ خطا در اتصال به Sheet — از حافظه محلی استفاده می‌شود';
+    console.log('Sheet load failed:',e);
+  }
 }
 
 // ═══════════════════════════════════════════════
