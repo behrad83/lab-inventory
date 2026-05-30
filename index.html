@@ -126,18 +126,10 @@ tr:hover td{background:#0e1018}
 <div id="registerScreen" class="hidden" style="position:fixed;inset:0;background:linear-gradient(135deg,#0b0d14 0%,#131627 100%);display:flex;align-items:center;justify-content:center;z-index:999">
   <div class="login-box">
     <div class="login-logo">📝</div>
-    <div class="login-title">درخواست دسترسی</div>
-    <div class="login-sub">اطلاعات خود را وارد کنید — ادمین تأیید می‌کند</div>
-    <input class="login-inp" id="regName" placeholder="نام و نام خانوادگی">
-    <input class="login-inp" id="regUser" placeholder="نام کاربری (انگلیسی)">
-    <input class="login-inp" id="regPass" placeholder="رمز عبور" type="password">
-    <input class="login-inp" id="regPass2" placeholder="تکرار رمز عبور" type="password">
-    <select class="login-inp" id="regRole" style="cursor:pointer">
-      <option value="">نوع دسترسی درخواستی...</option>
-      <option value="viewer">فقط مشاهده و جستجو</option>
-      <option value="operator">افزودن کالا و جستجو</option>
-      <option value="admin">دسترسی کامل (ادمین)</option>
-    </select>
+    <div class="login-title">ثبت‌نام</div>
+    <div class="login-sub">بعد از ثبت‌نام، ادمین دسترسی شما را تعیین می‌کند</div>
+    <input class="login-inp" id="regUser" placeholder="نام کاربری (انگلیسی)" autocomplete="username">
+    <input class="login-inp" id="regPass" placeholder="رمز عبور" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()">
     <button class="login-btn" onclick="doRegister()">ارسال درخواست</button>
     <div class="login-err" id="regErr"></div>
     <div style="margin-top:16px;border-top:1px solid #1e2235;padding-top:16px">
@@ -477,16 +469,47 @@ function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 function doLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value;
-  const found=USERS.find(x=>x.user===u&&x.pass===p);
-  if(!found){document.getElementById('loginErr').textContent='نام کاربری یا رمز اشتباه است';return}
-  currentUser=found;
-  document.getElementById('loginScreen').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  document.getElementById('userLabel').textContent=found.user;
-  renderDashboard();
-  loadFromSheet();
-  // نمایش یا مخفی کردن منو بر اساس دسترسی
-  applyRoleUI();
+  if(!u||!p){document.getElementById('loginErr').textContent='نام کاربری و رمز را وارد کنید';return;}
+  document.getElementById('loginErr').style.color='#9aa3c2';
+  document.getElementById('loginErr').textContent='در حال بررسی...';
+
+  function tryLogin(userList){
+    const defaults=[{user:'admin',pass:'lab1234',role:'admin',name:'مدیر سیستم',active:'true'}];
+    const all=[...defaults,...(userList||[])];
+    const found=all.find(x=>String(x.user)===u&&String(x.pass)===p&&String(x.active)!=='false');
+    if(!found){
+      document.getElementById('loginErr').style.color='#f87171';
+      document.getElementById('loginErr').textContent='نام کاربری یا رمز اشتباه است';
+      return;
+    }
+    const existing=USERS.findIndex(x=>x.user===found.user);
+    if(existing>=0)USERS[existing]=found; else USERS.push(found);
+    saveUsers();
+    currentUser=found;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    document.getElementById('userLabel').textContent=found.name||found.user;
+    renderDashboard();
+    loadFromSheet();
+    applyRoleUI();
+  }
+
+  const url=loadSheetUrl();
+  if(url){
+    const cbName='loginCb_'+Date.now();
+    window[cbName]=function(data){
+      delete window[cbName];
+      const s=document.getElementById(cbName);if(s)s.remove();
+      tryLogin(Array.isArray(data)?data:[]);
+    };
+    const script=document.createElement('script');
+    script.id=cbName;
+    script.src=url+'?action=getUsers&callback='+cbName+'&t='+Date.now();
+    script.onerror=function(){delete window[cbName];this.remove();tryLogin(USERS);};
+    document.head.appendChild(script);
+  } else {
+    tryLogin(USERS);
+  }
 }
 function doLogout(){
   currentUser=null;
@@ -510,28 +533,24 @@ function showLogin(){
 }
 
 function doRegister(){
-  const name=document.getElementById('regName').value.trim();
   const user=document.getElementById('regUser').value.trim();
   const pass=document.getElementById('regPass').value;
-  const pass2=document.getElementById('regPass2').value;
-  const role=document.getElementById('regRole').value;
   const err=document.getElementById('regErr');
 
-  if(!name||!user||!pass||!role){err.textContent='همه فیلدها الزامی است';return;}
-  if(pass!==pass2){err.textContent='رمز عبور با تکرار آن یکسان نیست';return;}
+  if(!user||!pass){err.textContent='نام کاربری و رمز عبور الزامی است';return;}
   if(pass.length<4){err.textContent='رمز عبور باید حداقل ۴ کاراکتر باشد';return;}
-  if(USERS.find(u=>u.user===user)||PENDING.find(u=>u.user===user)){err.textContent='این نام کاربری قبلاً ثبت شده';return;}
+  if(USERS.find(u=>u.user===user)||PENDING.find(u=>u.user===user)){
+    err.textContent='این نام کاربری قبلاً ثبت شده';return;
+  }
 
-  PENDING.push({id:'p_'+Date.now(),name,user,pass,role,date:new Date().toLocaleDateString('fa-IR'),active:false});
+  const req={id:'p_'+Date.now(),name:user,user,pass,role:'pending',date:new Date().toLocaleDateString('fa-IR'),active:false};
+  PENDING.push(req);
   savePending();
+  syncPendingToSheet(req);
 
-  // Sync to sheet
-  syncPendingToSheet(PENDING[PENDING.length-1]);
-
-  document.getElementById('registerScreen').classList.add('hidden');
-  document.getElementById('loginScreen').classList.remove('hidden');
+  showLogin();
   document.getElementById('loginErr').style.color='#4ade80';
-  document.getElementById('loginErr').textContent='✅ درخواست شما ارسال شد. منتظر تأیید ادمین باشید.';
+  document.getElementById('loginErr').textContent='✅ درخواست ارسال شد — منتظر تأیید ادمین باشید';
   setTimeout(()=>{
     document.getElementById('loginErr').textContent='';
     document.getElementById('loginErr').style.color='#f87171';
@@ -1068,25 +1087,35 @@ function removeUser(i){if(confirm('حذف شود؟')){USERS.splice(i,1);saveUser
 function renderPending(){
   const el=document.getElementById('pendingList');
   if(!el)return;
-  if(!PENDING.length){el.innerHTML='<div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">درخواستی وجود ندارد</div>';return;}
+  if(!PENDING.length){
+    el.innerHTML='<div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">درخواستی وجود ندارد</div>';
+    return;
+  }
   el.innerHTML=PENDING.map(p=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#0b0d14;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-      <div>
-        <div style="font-weight:600;font-size:13px">${p.name}</div>
-        <div style="color:#5a6080;font-size:12px;margin-top:2px">
-          @${p.user} | درخواست: <span style="color:${ROLES[p.role]?.color||'#9aa3c2'}">${ROLES[p.role]?.label||p.role}</span> | ${p.date}
+    <div style="background:#0b0d14;border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-weight:600;font-size:14px">@${p.user}</div>
+          <div style="color:#5a6080;font-size:12px;margin-top:2px">درخواست در: ${p.date}</div>
         </div>
+        <button class="btn btn-danger btn-sm" onclick="rejectPending('${p.id}')">❌ رد درخواست</button>
       </div>
-      <div style="display:flex;gap:8px">
-        <select onchange="changePendingRole('${p.id}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:5px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
-          <option value="viewer" ${p.role==='viewer'?'selected':''}>فقط مشاهده</option>
-          <option value="operator" ${p.role==='operator'?'selected':''}>اپراتور</option>
-          <option value="admin" ${p.role==='admin'?'selected':''}>ادمین</option>
-        </select>
-        <button class="btn btn-success btn-sm" onclick="approvePending('${p.id}')">✅ تأیید</button>
-        <button class="btn btn-danger btn-sm" onclick="rejectPending('${p.id}')">❌ رد</button>
+      <div style="font-size:12px;color:#5a6080;margin-bottom:6px">نوع دسترسی را تعیین کنید:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="approvePendingWithRole('${p.id}','viewer')"
+          style="background:#1e3a5f;color:#60a5fa;flex:1">👁️ فقط مشاهده</button>
+        <button class="btn btn-sm" onclick="approvePendingWithRole('${p.id}','operator')"
+          style="background:#1a3a2a;color:#4ade80;flex:1">📦 افزودن و جستجو</button>
+        <button class="btn btn-sm" onclick="approvePendingWithRole('${p.id}','admin')"
+          style="background:#3b1f5e;color:#c084fc;flex:1">⚙️ ادمین کامل</button>
       </div>
     </div>`).join('');
+}
+
+function approvePendingWithRole(id, role){
+  PENDING=PENDING.map(p=>p.id===id?{...p,role}:p);
+  savePending();
+  approvePending(id);
 }
 
 function changePendingRole(id,role){
@@ -1097,7 +1126,7 @@ function changePendingRole(id,role){
 function approvePending(id){
   const p=PENDING.find(x=>x.id===id);
   if(!p)return;
-  USERS.push({user:p.user,pass:p.pass,role:p.role,name:p.name,active:true});
+  USERS.push({user:p.user,pass:p.pass,role:p.role,name:p.user,active:true});
   saveUsers();
   PENDING=PENDING.filter(x=>x.id!==id);
   savePending();
