@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>انبار آزمایشگاه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Vazirmatn','Tahoma',sans-serif;direction:rtl;background:#0b0d14;color:#e2e4f0;min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#13151f}::-webkit-scrollbar-thumb{background:#2e3350;border-radius:4px}
+input,select,textarea{font-family:inherit;direction:rtl;outline:none}
+.hidden{display:none!important}
+
+/* ── LOGIN ── */
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0b0d14 0%,#131627 100%);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:#13151f;border:1px solid #1e2235;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;text-align:center}
+.login-logo{font-size:48px;margin-bottom:16px}
+.login-title{font-size:22px;font-weight:700;background:linear-gradient(135deg,#4f8ef7,#7c5af5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.login-sub{color:#4a5175;font-size:13px;margin-bottom:28px}
+.login-inp{width:100%;background:#0b0d14;border:1px solid #1e2235;border-radius:10px;padding:12px 16px;color:#e2e4f0;font-size:14px;margin-bottom:12px;transition:border .2s}
+.login-inp:focus{border-color:#4f8ef7}
+.login-btn{width:100%;background:linear-gradient(135deg,#4f8ef7,#7c5af5);border:none;border-radius:10px;padding:13px;color:white;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .2s;margin-top:4px}
+.login-btn:hover{opacity:.9}
+.login-err{color:#f87171;font-size:13px;margin-top:10px;min-height:20px}
+
+/* ── LAYOUT ── */
+#app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:#0e1018;border-left:1px solid #1a1d2e;padding:18px 14px;display:flex;flex-direction:column;gap:5px;position:fixed;top:0;right:0;bottom:0;overflow-y:auto;z-index:50}
+.main{flex:1;margin-right:220px;padding:24px;min-width:0}
+.logo{margin-bottom:22px;padding:0 6px}
+.logo-name{font-size:18px;font-weight:700;background:linear-gradient(135deg,#4f8ef7,#7c5af5);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:10px;color:#2e3350;margin-top:2px}
+.nav{padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:9px;color:#5a6080;transition:all .15s;font-weight:500}
+.nav:hover{background:#13151f;color:#9aa3c2}
+.nav.active{background:linear-gradient(135deg,#4f8ef722,#7c5af522);color:#fff;border:1px solid #4f8ef730}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-bottom{margin-top:auto;border-top:1px solid #1a1d2e;padding-top:14px}
+.user-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#13151f;font-size:12px;color:#5a6080;margin-bottom:8px}
+.user-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0}
+
+/* ── CARDS ── */
+.card{background:#13151f;border:1px solid #1a1d2e;border-radius:14px;padding:20px}
+.stat-card{background:linear-gradient(135deg,#13151f,#161929);border:1px solid #1a1d2e;border-radius:14px;padding:18px}
+.btn{border:none;cursor:pointer;font-family:inherit;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,#4f8ef7,#7c5af5);color:white}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:white}
+.btn-ghost{background:#1e2235;color:#9aa3c2}
+.btn-ghost:hover{background:#252840;color:#e2e4f0}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:white}
+.btn-sm{padding:6px 12px;font-size:12px}
+.inp{background:#0b0d14;border:1px solid #1a1d2e;border-radius:10px;padding:10px 14px;color:#e2e4f0;font-size:13px;width:100%;transition:border .2s}
+.inp:focus{border-color:#4f8ef7}
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-lab{background:#1e3a5f;color:#60a5fa}
+.tag-spare{background:#3b1f5e;color:#c084fc}
+.tag-resin{background:#1a3a2a;color:#4ade80}
+.badge-low{background:#3f1515;color:#f87171;border:1px solid #7f1d1d30}
+.badge-ok{background:#1a3a1a;color:#4ade80}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:#13151f;border:1px solid #1e2235;border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.form-group label{font-size:12px;color:#5a6080;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px}
+table{width:100%;border-collapse:collapse}
+th{background:#0b0d14;color:#5a6080;font-size:11px;font-weight:600;padding:10px 12px;text-align:right;border-bottom:1px solid #1a1d2e}
+td{padding:10px 12px;border-bottom:1px solid #13151f;font-size:13px;vertical-align:middle}
+tr:hover td{background:#0e1018}
+.page-title{font-size:20px;font-weight:700;margin-bottom:18px}
+.row{display:flex;gap:10px;align-items:center}
+.ai-glow{border-color:#7c5af5!important;box-shadow:0 0 20px #7c5af520}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#1e2235;border-radius:8px;padding:5px 10px;font-size:12px;color:#9aa3c2}
+
+/* ── QR PRINT ── */
+.qr-card-wrap{background:white;border-radius:12px;padding:14px;text-align:center;width:170px;display:inline-flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px #0006;cursor:pointer;transition:transform .15s}
+.qr-card-wrap:hover{transform:scale(1.03)}
+.qr-name{font-size:11px;font-weight:700;color:#111;direction:rtl;line-height:1.4;max-width:150px}
+.qr-code-text{font-size:10px;color:#555;font-family:monospace}
+.qr-loc{font-size:10px;color:#666}
+@media print{
+  .no-print{display:none!important}
+  body{background:white;color:black}
+  .print-area{display:flex!important;flex-wrap:wrap;gap:16px;padding:16px}
+}
+
+/* ── SETUP BANNER ── */
+.setup-banner{background:linear-gradient(135deg,#1e1a3a,#2a1f4a);border:1px solid #7c5af5;border-radius:12px;padding:14px 18px;margin-bottom:18px}
+.setup-step{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #2a2f45}
+.setup-step:last-child{border-bottom:none}
+.step-num{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#4f8ef7,#7c5af5);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+@media(max-width:700px){
+  .sidebar{width:54px;padding:10px 8px}
+  .logo,.nav span:last-child,.sidebar-bottom .user-chip span,.sidebar-bottom .btn span,.logo-sub{display:none}
+  .nav{justify-content:center;padding:10px}
+  .nav-icon{width:auto}
+  .main{margin-right:54px;padding:14px}
+  .grid3{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🧪</div>
+    <div class="login-title">انبار آزمایشگاه</div>
+    <div class="login-sub">سیستم مدیریت هوشمند انبار</div>
+    <input class="login-inp" id="loginUser" placeholder="نام کاربری" autocomplete="username">
+    <input class="login-inp" id="loginPass" placeholder="رمز عبور" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">ورود به سیستم</button>
+    <div class="login-err" id="loginErr"></div>
+    <div style="margin-top:18px;font-size:11px;color:#2e3350">
+      کاربر پیش‌فرض: <span style="color:#4f8ef7">admin</span> / رمز: <span style="color:#4f8ef7">lab1234</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ═══════════════════════════════════════════ -->
+<div id="app" class="hidden">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-name">🧪 انبار لب</div>
+      <div class="logo-sub">مدیریت هوشمند انبار</div>
+    </div>
+    <div class="nav active" onclick="gotoView('dashboard',this)"><span class="nav-icon">📊</span><span>داشبورد</span></div>
+    <div class="nav" onclick="gotoView('items',this)"><span class="nav-icon">📦</span><span>کالاها</span></div>
+    <div class="nav" onclick="gotoView('add',this)"><span class="nav-icon">➕</span><span>افزودن کالا</span></div>
+    <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
+    <div class="nav" onclick="gotoView('qr',this)"><span class="nav-icon">⬛</span><span>QR کدها</span></div>
+    <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
+    <div class="sidebar-bottom">
+      <div class="user-chip"><div class="user-dot"></div><span id="userLabel">admin</span></div>
+      <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="doLogout()"><span>🚪</span><span>خروج</span></button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="view-dashboard">
+      <div class="page-title">📊 داشبورد</div>
+      <div class="grid3" id="statsGrid"></div>
+      <div id="lowAlert"></div>
+      <div class="card">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px">آخرین کالاهای اضافه‌شده</div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>کد کالا</th><th>نام</th><th>دسته</th><th>موجودی</th><th>قفسه</th></tr></thead>
+          <tbody id="recentItems"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ITEMS ── -->
+    <div id="view-items" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin:0">📦 کالاها</div>
+        <div class="row">
+          <input class="inp" id="searchInp" placeholder="🔍 جستجو..." style="width:180px" oninput="renderItems()">
+          <button class="btn btn-primary btn-sm" onclick="gotoView('add',document.querySelector('.nav:nth-child(4)'))">+ افزودن</button>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>کد کالا</th><th>نام</th><th>دسته</th><th>موقعیت</th><th>موجودی</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+          <tbody id="itemsTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ADD ITEM ── -->
+    <div id="view-add" class="hidden">
+      <div class="page-title">➕ افزودن کالای جدید</div>
+      <div class="card" style="max-width:600px">
+        <div style="background:#0b0d14;border:1px solid #4f8ef730;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#60a5fa">
+          💡 کد کالا به‌صورت خودکار تولید می‌شود
+        </div>
+        <div class="form-group">
+          <label>نام کالا *</label>
+          <input class="inp" id="ni-name" placeholder="مثال: پیپت ۱۰۰۰ میکرولیتر">
+        </div>
+        <div class="form-group">
+          <label>توضیحات</label>
+          <textarea class="inp" id="ni-desc" placeholder="مشخصات فنی، برند، کاربرد..." rows="3" style="resize:vertical"></textarea>
+        </div>
+        <div class="grid2">
+          <div class="form-group">
+            <label>دسته‌بندی *</label>
+            <select class="inp" id="ni-cat" onchange="toggleUnit()">
+              <option value="آزمایشگاه">🔬 آزمایشگاه</option>
+              <option value="یدکی">🔧 یدکی</option>
+              <option value="رزین">🧴 رزین</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label id="qtyLabel">تعداد موجودی *</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="inp" type="number" id="ni-qty" placeholder="0" min="0">
+              <span id="unitBadge" style="background:#1e2235;padding:6px 10px;border-radius:8px;font-size:12px;color:#9aa3c2;white-space:nowrap">عدد</span>
+            </div>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="form-group">
+            <label>قفسه</label>
+            <input class="inp" id="ni-shelf" placeholder="مثال: A">
+          </div>
+          <div class="form-group">
+            <label>ردیف</label>
+            <input class="inp" id="ni-row" placeholder="مثال: ۱">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>حداقل موجودی (هشدار)</label>
+          <input class="inp" type="number" id="ni-min" placeholder="5" min="0">
+        </div>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button class="btn btn-success" style="flex:1" onclick="addItem()">✅ ذخیره و تولید QR</button>
+          <button class="btn btn-ghost" onclick="clearAddForm()">پاک کردن</button>
+        </div>
+        <div id="addResult" class="hidden" style="margin-top:16px;background:#1a3a2a;border:1px solid #166534;border-radius:10px;padding:16px">
+          <div style="color:#4ade80;font-weight:600;margin-bottom:10px">✅ کالا با موفقیت اضافه شد!</div>
+          <div id="addResultInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AI SEARCH ── -->
+    <div id="view-ai" class="hidden">
+      <div class="page-title">🤖 جستجوی هوشمند</div>
+      <div class="setup-banner">
+        <div style="font-size:13px;font-weight:600;color:#c084fc;margin-bottom:4px">🔑 Groq API Key لازم است</div>
+        <div style="font-size:12px;color:#9aa3c2;margin-bottom:10px">از <a href="https://console.groq.com" target="_blank" style="color:#60a5fa">console.groq.com</a> رایگان بگیرید — ثبت‌نام با Google</div>
+        <div class="row">
+          <input class="inp" id="groqKeyInp" placeholder="gsk_xxxxxxxxxxxxxxxx" style="font-family:monospace;font-size:12px" oninput="saveGroqKey()">
+          <button class="btn btn-ghost btn-sm" onclick="testGroq()" id="testBtn">تست</button>
+        </div>
+        <div id="groqStatus" style="font-size:12px;margin-top:8px;color:#5a6080"></div>
+      </div>
+
+      <!-- Chat -->
+      <div class="card" style="margin-bottom:14px;min-height:320px;max-height:450px;overflow-y:auto;display:flex;flex-direction:column;gap:10px" id="chatBox">
+        <div id="chatPlaceholder" style="text-align:center;color:#2e3350;font-size:13px;padding:32px 16px;line-height:2">
+          💬 سوال بپرسید به فارسی:<br>
+          <span style="color:#3a4060">«پیپت کجاست؟»</span><br>
+          <span style="color:#3a4060">«کدام کالاها کم موجودند؟»</span><br>
+          <span style="color:#3a4060">«رزین در کدام قفسه است؟»</span>
+        </div>
+      </div>
+      <div class="row">
+        <input class="inp" id="aiMsg" placeholder="سوال یا دستور بنویسید..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()">
+        <button class="btn btn-primary" onclick="sendChat()" id="sendBtn" style="white-space:nowrap">ارسال ↵</button>
+      </div>
+    </div>
+
+    <!-- ── QR CODES ── -->
+    <div id="view-qr" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin:0">⬛ QR کدها</div>
+        <button class="btn btn-primary no-print" onclick="window.print()">🖨️ پرینت همه</button>
+      </div>
+      <p style="color:#5a6080;font-size:13px;margin-bottom:18px">روی هر کارت کلیک کنید تا QR به‌صورت جداگانه دانلود شود.</p>
+      <div id="qrGrid" style="display:flex;flex-wrap:wrap;gap:14px"></div>
+    </div>
+
+    <!-- ── SETUP ── -->
+    <div id="view-setup" class="hidden">
+      <div class="page-title">⚙️ تنظیمات و راه‌اندازی آنلاین</div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-weight:600;font-size:15px;margin-bottom:14px;color:#c084fc">🌐 آنلاین کردن برنامه — قدم به قدم</div>
+
+        <div class="setup-step">
+          <div class="step-num">۱</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">ساخت Google Sheet</div>
+            <div style="font-size:12px;color:#5a6080;line-height:1.7">
+              به <a href="https://sheets.google.com" target="_blank" style="color:#60a5fa">sheets.google.com</a> بروید → Sheet جدید بسازید →
+              نام آن را <span style="color:#4ade80;font-family:monospace">lab-inventory</span> بگذارید →
+              ستون‌های زیر را در ردیف اول بنویسید:<br>
+              <span style="color:#f59e0b;font-family:monospace">id | code | name | desc | cat | qty | unit | shelf | row | minQty | date</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">۲</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">ساخت API با Apps Script</div>
+            <div style="font-size:12px;color:#5a6080;line-height:1.7">
+              در Sheet → منوی <b>Extensions</b> → <b>Apps Script</b> → کد زیر را paste کنید → Deploy → Web App → Anyone
+            </div>
+            <div style="background:#0b0d14;border-radius:8px;padding:12px;margin-top:8px;font-family:monospace;font-size:11px;color:#4ade80;overflow-x:auto;white-space:pre">function doGet(e){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheets()[0];
+  var data=sh.getDataRange().getValues();
+  var keys=data[0];
+  var rows=data.slice(1).map(function(r){
+    var obj={};keys.forEach(function(k,i){obj[k]=r[i]});
+    return obj;
+  });
+  return ContentService.createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e){
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sh=ss.getSheets()[0];
+  var d=JSON.parse(e.postData.contents);
+  sh.appendRow([d.id,d.code,d.name,d.desc,d.cat,d.qty,d.unit,d.shelf,d.row,d.minQty,d.date]);
+  return ContentService.createTextOutput("ok");
+}</div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">۳</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
+            <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/..." oninput="saveSheetUrl()" style="font-size:12px">
+            <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
+          </div>
+        </div>
+
+        <div class="setup-step">
+          <div class="step-num">۴</div>
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:4px">آپلود روی Glitch.com</div>
+            <div style="font-size:12px;color:#5a6080;line-height:1.7">
+              ۱. به <a href="https://glitch.com" target="_blank" style="color:#60a5fa">glitch.com</a> بروید → Sign in with Google<br>
+              ۲. New Project → Import from GitHub → یا فایل HTML را آپلود کنید<br>
+              ۳. لینک آنلاد شما: <span style="color:#4ade80">your-project.glitch.me</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:600;font-size:14px;margin-bottom:14px">👥 مدیریت کاربران</div>
+        <div style="font-size:12px;color:#5a6080;margin-bottom:12px">کاربران و رمزهای عبور (در نسخه آنلاین باید در سرور ذخیره شود)</div>
+        <div id="userList"></div>
+        <div class="row" style="margin-top:12px">
+          <input class="inp" id="newUser" placeholder="نام کاربری" style="flex:1">
+          <input class="inp" id="newPass" placeholder="رمز عبور" type="password" style="flex:1">
+          <button class="btn btn-success btn-sm" onclick="addUser()">+ افزودن</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── DETAIL MODAL ── -->
+<div id="modal-detail" class="modal-bg hidden" onclick="if(event.target===this)closeDetail()">
+  <div class="modal"><div id="detailContent"></div></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let items = JSON.parse(localStorage.getItem('lab_items')||'[]');
+let chatHistory = [];
+let currentUser = null;
+
+const USERS = JSON.parse(localStorage.getItem('lab_users')||JSON.stringify([
+  {user:'admin',pass:'lab1234',role:'admin'},
+  {user:'انباردار',pass:'store123',role:'user'}
+]));
+
+function saveItems(){localStorage.setItem('lab_items',JSON.stringify(items))}
+function saveUsers(){localStorage.setItem('lab_users',JSON.stringify(USERS))}
+function saveGroqKey(){localStorage.setItem('groqKey',document.getElementById('groqKeyInp').value)}
+function loadGroqKey(){return localStorage.getItem('groqKey')||''}
+function saveSheetUrl(){
+  localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
+  document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
+}
+function loadSheetUrl(){return localStorage.getItem('sheetUrl')||''}
+
+// ═══════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  const found=USERS.find(x=>x.user===u&&x.pass===p);
+  if(!found){document.getElementById('loginErr').textContent='نام کاربری یا رمز اشتباه است';return}
+  currentUser=found;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('userLabel').textContent=found.user;
+  renderDashboard();
+}
+function doLogout(){
+  currentUser=null;
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginErr').textContent='';
+}
+
+// ═══════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════
+function gotoView(v,el){
+  document.querySelectorAll('[id^="view-"]').forEach(x=>x.classList.add('hidden'));
+  document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.remove('hidden');
+  if(el)el.classList.add('active');
+  if(v==='dashboard')renderDashboard();
+  else if(v==='items')renderItems();
+  else if(v==='qr')renderQR();
+  else if(v==='ai'){document.getElementById('groqKeyInp').value=loadGroqKey();}
+  else if(v==='setup'){
+    document.getElementById('sheetUrl').value=loadSheetUrl();
+    renderUserList();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  CODE GENERATOR
+// ═══════════════════════════════════════════════
+function genCode(cat){
+  const prefix=cat==='آزمایشگاه'?'LAB':cat==='یدکی'?'YDK':'RZN';
+  const nums=items.filter(i=>i.code.startsWith(prefix)).map(i=>parseInt(i.code.split('-')[1])||0);
+  const next=(nums.length?Math.max(...nums):0)+1;
+  return `${prefix}-${String(next).padStart(3,'0')}`;
+}
+
+// ═══════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════
+function renderDashboard(){
+  const low=items.filter(i=>i.qty<=i.minQty);
+  document.getElementById('statsGrid').innerHTML=[
+    {l:'کل کالاها',v:items.length,s:'نوع ثبت‌شده',i:'📦',c:'#4f8ef7'},
+    {l:'کم‌موجود',v:low.length,s:'نیاز به سفارش',i:'⚠️',c:'#f59e0b'},
+    {l:'دسته آزمایشگاه',v:items.filter(i=>i.cat==='آزمایشگاه').length,s:'قلم',i:'🔬',c:'#60a5fa'},
+    {l:'یدکی و رزین',v:items.filter(i=>i.cat!=='آزمایشگاه').length,s:'قلم',i:'🔧',c:'#c084fc'},
+  ].map(s=>`<div class="stat-card"><div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div><div style="color:#5a6080;font-size:12px">${s.l}</div>
+    <div style="font-size:28px;font-weight:700;color:${s.c};margin-top:4px">${s.v}</div>
+    <div style="color:#2e3350;font-size:11px;margin-top:2px">${s.s}</div></div>
+    <div style="font-size:24px">${s.i}</div></div></div>`).join('');
+
+  document.getElementById('lowAlert').innerHTML=low.length?`<div class="card" style="border-color:#7f1d1d40;margin-bottom:16px">
+    <div style="color:#f87171;font-weight:600;margin-bottom:10px;font-size:13px">⚠️ کالاهای نیاز به سفارش (${low.length})</div>
+    ${low.map(i=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1d2e;font-size:12px">
+      <span>${i.name}</span><span style="color:#f87171">${i.qty} ${i.unit} / حداقل ${i.minQty}</span></div>`).join('')}
+  </div>`:'';
+
+  document.getElementById('recentItems').innerHTML=[...items].reverse().slice(0,6).map(i=>`<tr onclick="openDetail('${i.id}')" style="cursor:pointer">
+    <td style="color:#60a5fa;font-family:monospace;font-size:12px">${i.code}</td>
+    <td style="font-weight:500">${i.name}</td>
+    <td><span class="tag ${catClass(i.cat)}">${i.cat}</span></td>
+    <td>${i.qty} ${i.unit}</td>
+    <td style="color:#9aa3c2">قفسه ${i.shelf||'-'}</td>
+  </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  ITEMS LIST
+// ═══════════════════════════════════════════════
+const catClass=c=>c==='آزمایشگاه'?'tag-lab':c==='یدکی'?'tag-spare':'tag-resin';
+
+function renderItems(){
+  const q=(document.getElementById('searchInp')?.value||'').trim();
+  const list=q?items.filter(i=>i.name.includes(q)||i.code.includes(q)||i.shelf.includes(q)||i.cat.includes(q)||i.desc.includes(q)):items;
+  document.getElementById('itemsTable').innerHTML=list.length?list.map(i=>`<tr>
+    <td style="color:#60a5fa;font-family:monospace;font-size:12px">${i.code}</td>
+    <td style="font-weight:500;max-width:180px"><div>${i.name}</div><div style="color:#5a6080;font-size:11px;margin-top:2px">${i.desc?i.desc.slice(0,40)+'…':''}</div></td>
+    <td><span class="tag ${catClass(i.cat)}">${i.cat}</span></td>
+    <td><span style="background:#1e2235;padding:2px 8px;border-radius:6px;font-size:11px">قفسه ${i.shelf||'-'} — ردیف ${i.row||'-'}</span></td>
+    <td style="font-weight:600">${i.qty} ${i.unit}</td>
+    <td><span class="tag ${i.qty<=i.minQty?'badge-low':'badge-ok'}">${i.qty<=i.minQty?'کم‌موجود':'موجود'}</span></td>
+    <td><div style="display:flex;gap:6px">
+      <button class="btn btn-ghost btn-sm" onclick="openDetail('${i.id}')">جزئیات</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteItem('${i.id}')">حذف</button>
+    </div></td>
+  </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;color:#2e3350;padding:32px">کالایی یافت نشد</td></tr>`;
+}
+
+// ═══════════════════════════════════════════════
+//  ADD ITEM
+// ═══════════════════════════════════════════════
+function toggleUnit(){
+  const cat=document.getElementById('ni-cat').value;
+  const u=cat==='رزین'?'گرم/میلی‌لیتر':'عدد';
+  document.getElementById('unitBadge').textContent=u;
+  document.getElementById('qtyLabel').textContent=cat==='رزین'?'حجم/وزن موجودی *':'تعداد موجودی *';
+}
+
+function addItem(){
+  const name=document.getElementById('ni-name').value.trim();
+  const cat=document.getElementById('ni-cat').value;
+  const qty=parseInt(document.getElementById('ni-qty').value)||0;
+  if(!name){alert('نام کالا الزامی است');return}
+
+  const unit=cat==='رزین'?'گرم':'عدد';
+  const code=genCode(cat);
+  const id='item_'+Date.now();
+  const item={
+    id,code,name,
+    desc:document.getElementById('ni-desc').value.trim(),
+    cat,qty,unit,
+    shelf:document.getElementById('ni-shelf').value.trim().toUpperCase()||'-',
+    row:document.getElementById('ni-row').value.trim()||'-',
+    minQty:parseInt(document.getElementById('ni-min').value)||0,
+    date:new Date().toLocaleDateString('fa-IR')
+  };
+  items.push(item);
+  saveItems();
+  syncToSheet(item);
+
+  // Show result
+  document.getElementById('addResult').classList.remove('hidden');
+  document.getElementById('addResultInfo').innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      ${[['کد کالا',code],['دسته',cat],['موجودی',qty+' '+unit],['قفسه',item.shelf+' / ردیف '+item.row]].map(([l,v])=>
+        `<div class="chip"><span style="color:#5a6080">${l}:</span><span style="color:#e2e4f0">${v}</span></div>`).join('')}
+    </div>
+    <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="gotoView('qr',document.querySelector('.nav:nth-child(6)'))">مشاهده QR کد ↗</button>`;
+  clearAddForm(true);
+}
+
+function clearAddForm(keepResult=false){
+  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('ni-cat').value='آزمایشگاه';
+  toggleUnit();
+  if(!keepResult)document.getElementById('addResult').classList.add('hidden');
+}
+
+function deleteItem(id){
+  if(!confirm('آیا مطمئنید؟'))return;
+  items=items.filter(i=>i.id!==id);
+  saveItems();
+  renderItems();
+}
+
+// ═══════════════════════════════════════════════
+//  DETAIL MODAL
+// ═══════════════════════════════════════════════
+function openDetail(id){
+  const i=items.find(x=>x.id===id);if(!i)return;
+  document.getElementById('detailContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <div style="font-weight:700;font-size:17px">${i.name}</div>
+        <div style="color:#60a5fa;font-family:monospace;font-size:13px;margin-top:3px">${i.code}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeDetail()">✕</button>
+    </div>
+    ${i.desc?`<div style="background:#0b0d14;border-radius:8px;padding:12px;font-size:13px;color:#9aa3c2;margin-bottom:16px;line-height:1.6">${i.desc}</div>`:''}
+    <div class="grid2" style="margin-bottom:16px">
+      ${[['دسته‌بندی',i.cat],['موقعیت',`قفسه ${i.shelf} — ردیف ${i.row}`],
+         ['موجودی',`${i.qty} ${i.unit}`],['حداقل',`${i.minQty} ${i.unit}`],
+         ['وضعیت',i.qty<=i.minQty?'⚠️ کم‌موجود':'✅ موجود'],['تاریخ ثبت',i.date]
+        ].map(([l,v])=>`<div style="background:#0b0d14;border-radius:10px;padding:12px">
+          <div style="color:#5a6080;font-size:11px">${l}</div>
+          <div style="font-weight:600;margin-top:4px;font-size:13px">${v}</div></div>`).join('')}
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div id="modal-qr" style="display:inline-block;background:white;padding:12px;border-radius:10px"></div>
+      <div style="color:#5a6080;font-size:11px;margin-top:6px">QR کد — ${i.code}</div>
+      <div><button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="downloadQR('${i.id}','${i.code}')">⬇️ دانلود QR</button></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-success" style="flex:1" onclick="changeQty('${i.id}',1)">➕ افزایش موجودی</button>
+      <button class="btn btn-danger" style="flex:1" onclick="changeQty('${i.id}',-1)">➖ کاهش موجودی</button>
+    </div>`;
+  document.getElementById('modal-detail').classList.remove('hidden');
+  setTimeout(()=>{
+    const el=document.getElementById('modal-qr');
+    if(el&&typeof QRCode!=='undefined'){
+      el.innerHTML='';
+      try{new QRCode(el,{text:`CODE:${i.code}|NAME:${i.name}|SHELF:${i.shelf}|ROW:${i.row}|QTY:${i.qty}`,width:120,height:120,colorDark:'#111',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}
+    }
+  },150);
+}
+
+function changeQty(id,dir){
+  const amt=parseInt(prompt(dir>0?'چند عدد اضافه شد؟':'چند عدد کم شد؟')||'0');
+  if(!amt||isNaN(amt))return;
+  items=items.map(i=>i.id!==id?i:{...i,qty:Math.max(0,i.qty+dir*amt)});
+  saveItems();
+  closeDetail();
+  openDetail(id);
+  if(document.getElementById('view-dashboard').offsetParent)renderDashboard();
+}
+
+function closeDetail(){document.getElementById('modal-detail').classList.add('hidden')}
+
+// ═══════════════════════════════════════════════
+//  QR PAGE
+// ═══════════════════════════════════════════════
+function renderQR(){
+  const grid=document.getElementById('qrGrid');
+  grid.innerHTML='';
+  if(!items.length){grid.innerHTML='<div style="color:#2e3350;font-size:14px;padding:32px">هنوز کالایی ثبت نشده</div>';return}
+  items.forEach(item=>{
+    const wrap=document.createElement('div');
+    wrap.className='qr-card-wrap';
+    wrap.title='کلیک برای دانلود QR';
+    wrap.innerHTML=`<div id="qrb-${item.id}"></div>
+      <div class="qr-name">${item.name}</div>
+      <div class="qr-code-text">${item.code}</div>
+      <div class="qr-loc">قفسه ${item.shelf||'-'} — ردیف ${item.row||'-'}</div>
+      <div style="font-size:10px;color:${item.qty<=item.minQty?'#dc2626':'#16a34a'};font-weight:700">${item.qty} ${item.unit} موجود</div>`;
+    wrap.onclick=()=>downloadQR(item.id,item.code);
+    grid.appendChild(wrap);
+    setTimeout(()=>{
+      const el=document.getElementById('qrb-'+item.id);
+      if(el&&typeof QRCode!=='undefined'){
+        try{new QRCode(el,{text:`CODE:${item.code}|NAME:${item.name}|SHELF:${item.shelf}|ROW:${item.row}|QTY:${item.qty}`,width:120,height:120,colorDark:'#111',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}
+      }
+    },100);
+  });
+}
+
+function downloadQR(id,code){
+  const el=document.getElementById('qrb-'+id)||document.getElementById('modal-qr');
+  if(!el)return;
+  const canvas=el.querySelector('canvas');
+  if(!canvas){alert('QR هنوز بارگذاری نشده');return}
+  const a=document.createElement('a');
+  a.href=canvas.toDataURL('image/png');
+  a.download=`QR-${code}.png`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+//  GROQ AI CHAT
+// ═══════════════════════════════════════════════
+function buildContext(){
+  return`تو دستیار هوشمند انبار آزمایشگاه هستی. اطلاعات زیر را داری:
+
+کالاها (${items.length} قلم):
+${items.map(i=>`• ${i.code} | ${i.name} | ${i.cat} | قفسه:${i.shelf} ردیف:${i.row} | موجودی:${i.qty}${i.unit} | حداقل:${i.minQty} | ${i.qty<=i.minQty?'⚠️کم‌موجود':'✅موجود'}`).join('\n')}
+
+کم‌موجودها: ${items.filter(i=>i.qty<=i.minQty).map(i=>i.name).join('، ')||'ندارد'}
+
+به سوالات به فارسی کوتاه و مفید پاسخ بده. اگر کالایی پرسیده شد، قفسه و ردیف آن را دقیق بگو.`;
+}
+
+function addBubble(role,text){
+  const ph=document.getElementById('chatPlaceholder');
+  if(ph)ph.remove();
+  const box=document.getElementById('chatBox');
+  const isUser=role==='user';
+  const div=document.createElement('div');
+  div.style.cssText=`display:flex;justify-content:${isUser?'flex-start':'flex-end'}`;
+  div.innerHTML=`<div style="max-width:80%;padding:10px 14px;border-radius:${isUser?'4px 14px 14px 14px':'14px 4px 14px 14px'};
+    background:${isUser?'#1e2235':'linear-gradient(135deg,#4f8ef7,#7c5af5)'};
+    color:white;font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word">${text}</div>`;
+  box.appendChild(div);box.scrollTop=box.scrollHeight;
+}
+
+async function sendChat(){
+  const key=loadGroqKey();
+  if(!key){alert('لطفاً ابتدا Groq API Key را در همین صفحه وارد کنید');return}
+  const msg=document.getElementById('aiMsg').value.trim();
+  if(!msg)return;
+  document.getElementById('aiMsg').value='';
+  document.getElementById('sendBtn').disabled=true;
+  document.getElementById('sendBtn').textContent='...';
+  addBubble('user',msg);
+  chatHistory.push({role:'user',content:msg});
+
+  const typing=document.createElement('div');
+  typing.id='typing';typing.style.cssText='display:flex;justify-content:flex-end';
+  typing.innerHTML='<div style="padding:10px 16px;border-radius:14px 4px 14px 14px;background:#1e2235;color:#5a6080;font-size:13px" class="pulse">در حال تایپ...</div>';
+  document.getElementById('chatBox').appendChild(typing);
+  document.getElementById('chatBox').scrollTop=9999;
+
+  try{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        messages:[{role:'system',content:buildContext()},...chatHistory.slice(-10)],
+        max_tokens:700,temperature:0.3
+      })
+    });
+    const data=await res.json();
+    typing.remove();
+    if(data.error){addBubble('assistant','❌ خطا: '+data.error.message);return}
+    const reply=data.choices[0].message.content;
+    chatHistory.push({role:'assistant',content:reply});
+    addBubble('assistant',reply);
+  }catch(e){
+    typing.remove();
+    addBubble('assistant','❌ خطا در اتصال. API Key و اینترنت را بررسی کنید.');
+  }
+  document.getElementById('sendBtn').disabled=false;
+  document.getElementById('sendBtn').textContent='ارسال ↵';
+}
+
+async function testGroq(){
+  const key=document.getElementById('groqKeyInp').value.trim();
+  if(!key){alert('ابتدا API Key را وارد کنید');return}
+  document.getElementById('testBtn').textContent='...';
+  document.getElementById('groqStatus').textContent='در حال بررسی...';
+  try{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:'سلام'}],max_tokens:10})
+    });
+    const d=await res.json();
+    if(d.error){document.getElementById('groqStatus').innerHTML='<span style="color:#f87171">❌ '+d.error.message+'</span>'}
+    else{document.getElementById('groqStatus').innerHTML='<span style="color:#4ade80">✅ اتصال موفق! AI آماده است</span>';saveGroqKey();}
+  }catch(e){document.getElementById('groqStatus').innerHTML='<span style="color:#f87171">❌ خطای اتصال</span>'}
+  document.getElementById('testBtn').textContent='تست';
+}
+
+// ═══════════════════════════════════════════════
+//  GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════════
+async function syncToSheet(item){
+  const url=loadSheetUrl();
+  if(!url)return;
+  try{
+    await fetch(url,{method:'POST',body:JSON.stringify(item),headers:{'Content-Type':'application/json'}});
+  }catch(e){console.log('Sync failed:',e)}
+}
+
+// ═══════════════════════════════════════════════
+//  USER MANAGEMENT
+// ═══════════════════════════════════════════════
+function renderUserList(){
+  document.getElementById('userList').innerHTML=USERS.map((u,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:#0b0d14;margin-bottom:6px;font-size:13px">
+      <div><span style="color:#e2e4f0">${u.user}</span> <span class="tag" style="background:#1e2235;color:#5a6080;font-size:10px">${u.role}</span></div>
+      ${i>0?`<button class="btn btn-danger btn-sm" onclick="removeUser(${i})">حذف</button>`:'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>'}
+    </div>`).join('');
+}
+function addUser(){
+  const u=document.getElementById('newUser').value.trim();
+  const p=document.getElementById('newPass').value;
+  if(!u||!p){alert('نام و رمز الزامی است');return}
+  if(USERS.find(x=>x.user===u)){alert('این کاربر وجود دارد');return}
+  USERS.push({user:u,pass:p,role:'user'});
+  saveUsers();renderUserList();
+  document.getElementById('newUser').value='';document.getElementById('newPass').value='';
+}
+function removeUser(i){if(confirm('حذف شود؟')){USERS.splice(i,1);saveUsers();renderUserList()}}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+</script>
+</body>
+</html>
