@@ -552,6 +552,7 @@ function clearAddForm(keepResult=false){
 
 function deleteItem(id){
   if(!confirm('آیا مطمئنید؟'))return;
+  deleteFromSheet(id);
   items=items.filter(i=>i.id!==id);
   saveItems();
   renderItems();
@@ -737,12 +738,42 @@ async function testGroq(){
 // ═══════════════════════════════════════════════
 //  GOOGLE SHEETS SYNC
 // ═══════════════════════════════════════════════
-async function syncToSheet(item){
+function syncToSheet(item){
   const url=loadSheetUrl();
   if(!url)return;
-  try{
-    await fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify(item),headers:{'Content-Type':'text/plain'}});
-  }catch(e){console.log('Sync failed:',e)}
+  const cbName='addCb_'+Date.now();
+  const params=new URLSearchParams({
+    action:'add',callback:cbName,
+    id:item.id,code:item.code,name:item.name,desc:item.desc||'',
+    cat:item.cat,qty:item.qty,unit:item.unit,
+    shelf:item.shelf,row:item.row,minQty:item.minQty,date:item.date
+  });
+  window[cbName]=function(r){
+    console.log('Sheet sync:',r);
+    delete window[cbName];
+    const s=document.getElementById(cbName);if(s)s.remove();
+  };
+  const script=document.createElement('script');
+  script.id=cbName;
+  script.src=url+'?'+params.toString();
+  script.onerror=function(){delete window[cbName];this.remove();};
+  document.head.appendChild(script);
+}
+
+function deleteFromSheet(id){
+  const url=loadSheetUrl();
+  if(!url)return;
+  const cbName='delCb_'+Date.now();
+  window[cbName]=function(r){
+    console.log('Sheet delete:',r);
+    delete window[cbName];
+    const s=document.getElementById(cbName);if(s)s.remove();
+  };
+  const script=document.createElement('script');
+  script.id=cbName;
+  script.src=url+'?action=delete&id='+encodeURIComponent(id)+'&callback='+cbName;
+  script.onerror=function(){delete window[cbName];this.remove();};
+  document.head.appendChild(script);
 }
 
 function loadFromSheet(){
