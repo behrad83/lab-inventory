@@ -745,32 +745,47 @@ async function syncToSheet(item){
   }catch(e){console.log('Sync failed:',e)}
 }
 
-async function loadFromSheet(){
+function loadFromSheet(){
   const url=loadSheetUrl();
   const statusEl=document.getElementById('syncStatus');
   if(!url){if(statusEl)statusEl.textContent='لینک Sheet تنظیم نشده';return;}
   if(statusEl)statusEl.textContent='در حال بارگذاری...';
-  try{
-    const res=await fetch(url+'?t='+Date.now());
-    if(!res.ok)throw new Error('bad response');
-    const data=await res.json();
-    if(Array.isArray(data)&&data.length>0){
-      items=data.map(d=>({
-        id:String(d.id||'item_'+Math.random()),
-        code:String(d.code||''),name:String(d.name||''),desc:String(d.desc||''),
-        cat:String(d.cat||'آزمایشگاه'),qty:Number(d.qty)||0,unit:String(d.unit||'عدد'),
-        shelf:String(d.shelf||'-'),row:String(d.row||'-'),minQty:Number(d.minQty)||0,date:String(d.date||'')
-      }));
-      saveItems();
-      renderDashboard();
-      if(statusEl)statusEl.textContent='✅ '+items.length+' کالا از Google Sheets بارگذاری شد';
-    }else{
-      if(statusEl)statusEl.textContent='⚠️ Sheet خالی است یا داده‌ای ندارد';
+
+  // JSONP - راه‌حل CORS
+  const cbName='sheetCb_'+Date.now();
+  window[cbName]=function(data){
+    try{
+      if(Array.isArray(data)&&data.length>0){
+        items=data.map(function(d){return{
+          id:String(d.id||'item_'+Math.random()),
+          code:String(d.code||''),name:String(d.name||''),desc:String(d.desc||''),
+          cat:String(d.cat||'آزمایشگاه'),qty:Number(d.qty)||0,unit:String(d.unit||'عدد'),
+          shelf:String(d.shelf||'-'),row:String(d.row||'-'),minQty:Number(d.minQty)||0,date:String(d.date||'')
+        };});
+        saveItems();
+        renderDashboard();
+        if(statusEl)statusEl.textContent='✅ '+items.length+' کالا از Google Sheets بارگذاری شد';
+      }else{
+        if(statusEl)statusEl.textContent='⚠️ Sheet خالی است';
+      }
+    }catch(e){
+      if(statusEl)statusEl.textContent='⚠️ خطا در پردازش داده‌ها';
+    }finally{
+      delete window[cbName];
+      const s=document.getElementById(cbName);
+      if(s)s.remove();
     }
-  }catch(e){
-    if(statusEl)statusEl.textContent='⚠️ خطا در اتصال به Sheet — از حافظه محلی استفاده می‌شود';
-    console.log('Sheet load failed:',e);
-  }
+  };
+
+  const script=document.createElement('script');
+  script.id=cbName;
+  script.src=url+'?callback='+cbName+'&t='+Date.now();
+  script.onerror=function(){
+    if(statusEl)statusEl.textContent='⚠️ خطا در اتصال به Sheet';
+    delete window[cbName];
+    this.remove();
+  };
+  document.head.appendChild(script);
 }
 
 // ═══════════════════════════════════════════════
