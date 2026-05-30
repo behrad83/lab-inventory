@@ -777,7 +777,16 @@ function gotoView(v,el){
   else if(v==='ai'){}
   else if(v==='users'){
     if(!canDo('users')){alert('دسترسی ندارید');return;}
-    renderPending();renderActiveUsers();
+    renderPending();
+    renderActiveUsers();
+    // لود از Sheet هر بار
+    callSheet('getUsers',{t:Date.now()},function(data){
+      if(Array.isArray(data)&&data.length>0){
+        USERS=data.filter(function(u){return u.active!=='false';});
+        saveUsers();
+        renderActiveUsers();
+      }
+    });
     loadPendingFromSheet();
   }
   else if(v==='setup'){
