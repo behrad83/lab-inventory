@@ -732,7 +732,7 @@ async function sendChat(){
   document.getElementById('chatBox').scrollTop=9999;
 
   try{
-    const res=await fetch('https://wandering-brook-1a55groq-proxy.behradkarimi1383.workers.dev/',{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
       body:JSON.stringify({
@@ -761,7 +761,7 @@ async function testGroq(){
   document.getElementById('testBtn').textContent='...';
   document.getElementById('groqStatus').textContent='در حال بررسی...';
   try{
-    const res=await fetch('https://wandering-brook-1a55groq-proxy.behradkarimi1383.workers.dev/',{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
       body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:'سلام'}],max_tokens:10})
