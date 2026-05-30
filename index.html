@@ -398,7 +398,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbyHHp1mpSv5hIR-0Lfa-vnYFptNVHHTIR-JAzh6kw2mpdCFAXHi1Bxc2wVZB_yhnr7L/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbxZGQyd8WU41VhVWKywEIex1VNQluGLTDkIAgonf0pFIAiu1JLSZ8N-U1qPDkchQDkn/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -743,39 +743,44 @@ function sendChat(){
     ctx:ctx.slice(0,2000)
   });
 
+  function resetBtn(){
+    document.getElementById('sendBtn').disabled=false;
+    document.getElementById('sendBtn').textContent='ارسال ↵';
+  }
+
   window[cbName]=function(data){
     typing.remove();
-    if(data.answer){
+    if(data && data.answer){
       chatHistory.push({role:'assistant',content:data.answer});
       addBubble('assistant',data.answer);
+    } else if(data && data.error){
+      addBubble('assistant','❌ خطا از سرور: '+data.error);
     } else {
-      addBubble('assistant','❌ خطا در دریافت پاسخ');
+      addBubble('assistant','❌ پاسخ نامعتبر از سرور');
     }
     delete window[cbName];
     const s=document.getElementById(cbName);if(s)s.remove();
-    document.getElementById('sendBtn').disabled=false;
-    document.getElementById('sendBtn').textContent='ارسال ↵';
+    resetBtn();
   };
 
   const script=document.createElement('script');
   script.id=cbName;
-  script.src=loadSheetUrl()+'?'+params.toString();
+  // فقط سوال رو می‌فرستیم — context رو Apps Script از Sheet می‌خونه
+  const finalUrl=loadSheetUrl()+'?action=ai&callback='+cbName+'&q='+encodeURIComponent(msg);
+  script.src=finalUrl;
   script.onerror=function(){
     typing.remove();
-    addBubble('assistant','❌ خطا در اتصال. اینترنت را بررسی کنید.');
+    addBubble('assistant','❌ خطا: Apps Script در دسترس نیست. URL را در تنظیمات بررسی کنید.');
     delete window[cbName];this.remove();
-    document.getElementById('sendBtn').disabled=false;
-    document.getElementById('sendBtn').textContent='ارسال ↵';
+    resetBtn();
   };
-  // timeout 15 ثانیه
   setTimeout(function(){
     if(window[cbName]){
       typing.remove();
-      addBubble('assistant','❌ زمان پاسخ تمام شد. دوباره تلاش کنید.');
+      addBubble('assistant','⏱ زمان پاسخ تمام شد (۱۵ ثانیه). دوباره تلاش کنید.');
       delete window[cbName];
       const s=document.getElementById(cbName);if(s)s.remove();
-      document.getElementById('sendBtn').disabled=false;
-      document.getElementById('sendBtn').textContent='ارسال ↵';
+      resetBtn();
     }
   },15000);
   document.head.appendChild(script);
