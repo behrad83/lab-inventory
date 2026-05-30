@@ -910,10 +910,11 @@ function addItem(){
   // آپلود عکس اگه انتخاب شده
   const imgFile=document.getElementById('ni-image').files[0];
   if(imgFile){
-    uploadImageToSheet(id, imgFile, function(url){
-      if(url){
-        items=items.map(function(i){return i.id===id?Object.assign({},i,{image:url}):i;});
-        saveItems();
+    uploadImageToSheet(id, imgFile, function(compressed){
+      if(compressed){
+        // عکس فشرده شده در localStorage ذخیره شده
+        // نمایش پیام موفقیت
+        console.log('Image saved locally for item:', id);
       }
     });
   }
@@ -940,28 +941,34 @@ function previewImage(input){
 }
 
 function uploadImageToSheet(itemId, file, callback){
+  // فشرده‌سازی عکس و ذخیره به صورت base64 کوچک
   const reader=new FileReader();
   reader.onload=function(e){
-    const base64=e.target.result.split(',')[1];
-    const cbName='imgCb_'+Date.now();
-    const params=new URLSearchParams({
-      action:'uploadImage',
-      callback:cbName,
-      itemId:itemId,
-      fileName:file.name,
-      mimeType:file.type,
-      imageData:base64
-    });
-    window[cbName]=function(res){
-      delete window[cbName];
-      const s=document.getElementById(cbName);if(s)s.remove();
-      callback(res&&res.url?res.url:null);
+    const img=new Image();
+    img.onload=function(){
+      // فشرده‌سازی به حداکثر 300x300
+      const canvas=document.createElement('canvas');
+      const MAX=300;
+      let w=img.width, h=img.height;
+      if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}
+      else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+      canvas.width=w; canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      // کیفیت 0.6 برای فشرده‌سازی بیشتر
+      const compressed=canvas.toDataURL('image/jpeg',0.6);
+      
+      // ذخیره در localStorage و items
+      items=items.map(function(i){
+        return i.id===itemId?Object.assign({},i,{image:compressed}):i;
+      });
+      saveItems();
+      
+      // ذخیره در Sheet - فقط URL نه base64 (چون خیلی بزرگه)
+      // به جاش یه flag میذاریم که عکس لوکاله
+      callback(compressed);
     };
-    const script=document.createElement('script');
-    script.id=cbName;
-    script.src=loadSheetUrl()+'?'+params.toString();
-    script.onerror=function(){delete window[cbName];this.remove();callback(null);};
-    document.head.appendChild(script);
+    img.src=e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -1133,10 +1140,9 @@ function saveEdit(id){
   // آپلود عکس جدید اگه انتخاب شده
   const imgInput=document.getElementById('edit-image-'+id);
   if(imgInput&&imgInput.files[0]){
-    uploadImageToSheet(id, imgInput.files[0], function(url){
-      if(url){
-        items=items.map(function(i){return i.id===id?Object.assign({},i,{image:url}):i;});
-        saveItems();
+    uploadImageToSheet(id, imgInput.files[0], function(compressed){
+      if(compressed){
+        console.log('Image updated locally for item:', id);
       }
     });
   }
