@@ -208,8 +208,15 @@ tr:hover td{background:#0e1018}
           <div class="form-group">
             <label id="qtyLabel">تعداد موجودی *</label>
             <div style="display:flex;gap:8px;align-items:center">
-              <input class="inp" type="number" id="ni-qty" placeholder="0" min="0">
-              <span id="unitBadge" style="background:#1e2235;padding:6px 10px;border-radius:8px;font-size:12px;color:#9aa3c2;white-space:nowrap">عدد</span>
+              <input class="inp" type="number" inputmode="decimal" id="ni-qty" placeholder="0" min="0" style="font-size:16px">
+              <select id="unitBadge" class="inp" style="width:auto;min-width:90px;padding:10px 8px">
+                <option value="عدد">عدد</option>
+                <option value="گرم">گرم</option>
+                <option value="میلی‌لیتر">میلی‌لیتر</option>
+                <option value="لیتر">لیتر</option>
+                <option value="کیلوگرم">کیلوگرم</option>
+                <option value="متر">متر</option>
+              </select>
             </div>
           </div>
         </div>
@@ -222,6 +229,15 @@ tr:hover td{background:#0e1018}
             <label>ردیف</label>
             <input class="inp" id="ni-row" placeholder="مثال: ۱">
           </div>
+        </div>
+        <div id="unitRow" style="display:none;gap:8px;align-items:center;margin-bottom:14px">
+          <label style="font-size:12px;color:#5a6080;font-weight:600;white-space:nowrap">واحد رزین:</label>
+          <select class="inp" id="ni-unit" onchange="toggleUnit()" style="max-width:160px">
+            <option value="گرم">گرم (g)</option>
+            <option value="کیلوگرم">کیلوگرم (kg)</option>
+            <option value="میلی‌لیتر">میلی‌لیتر (ml)</option>
+            <option value="لیتر">لیتر (L)</option>
+          </select>
         </div>
         <div class="form-group">
           <label>حداقل موجودی (هشدار)</label>
@@ -241,15 +257,7 @@ tr:hover td{background:#0e1018}
     <!-- ── AI SEARCH ── -->
     <div id="view-ai" class="hidden">
       <div class="page-title">🤖 جستجوی هوشمند</div>
-      <div class="setup-banner">
-        <div style="font-size:13px;font-weight:600;color:#c084fc;margin-bottom:4px">🔑 Groq API Key لازم است</div>
-        <div style="font-size:12px;color:#9aa3c2;margin-bottom:10px">از <a href="https://console.groq.com" target="_blank" style="color:#60a5fa">console.groq.com</a> رایگان بگیرید — ثبت‌نام با Google</div>
-        <div class="row">
-          <input class="inp" id="groqKeyInp" placeholder="gsk_xxxxxxxxxxxxxxxx" style="font-family:monospace;font-size:12px" oninput="saveGroqKey()">
-          <button class="btn btn-ghost btn-sm" onclick="testGroq()" id="testBtn">تست</button>
-        </div>
-        <div id="groqStatus" style="font-size:12px;margin-top:8px;color:#5a6080"></div>
-      </div>
+      <div id="groqStatus" style="display:none"></div>
 
       <!-- Chat -->
       <div class="card" style="margin-bottom:14px;min-height:320px;max-height:450px;overflow-y:auto;display:flex;flex-direction:column;gap:10px" id="chatBox">
@@ -385,7 +393,7 @@ const USERS = JSON.parse(localStorage.getItem('lab_users')||JSON.stringify([
 function saveItems(){localStorage.setItem('lab_items',JSON.stringify(items))}
 function saveUsers(){localStorage.setItem('lab_users',JSON.stringify(USERS))}
 function saveGroqKey(){localStorage.setItem('groqKey',document.getElementById('groqKeyInp').value)}
-function loadGroqKey(){return localStorage.getItem('groqKey')||''}
+function loadGroqKey(){return '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';}
 function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
@@ -428,7 +436,7 @@ function gotoView(v,el){
   if(v==='dashboard')renderDashboard();
   else if(v==='items')renderItems();
   else if(v==='qr')renderQR();
-  else if(v==='ai'){document.getElementById('groqKeyInp').value=loadGroqKey();}
+  else if(v==='ai'){}
   else if(v==='setup'){
     document.getElementById('sheetUrl').value=loadSheetUrl();
     renderUserList();
@@ -503,9 +511,13 @@ function renderItems(){
 // ═══════════════════════════════════════════════
 function toggleUnit(){
   const cat=document.getElementById('ni-cat').value;
-  const u=cat==='رزین'?'گرم/میلی‌لیتر':'عدد';
-  document.getElementById('unitBadge').textContent=u;
-  document.getElementById('qtyLabel').textContent=cat==='رزین'?'حجم/وزن موجودی *':'تعداد موجودی *';
+  const isResin=cat==='رزین';
+  const unitSel=document.getElementById('ni-unit');
+  const badge=document.getElementById('unitBadge');
+  const unitRow=document.getElementById('unitRow');
+  if(unitRow)unitRow.style.display=isResin?'flex':'none';
+  if(badge)badge.textContent=isResin?(unitSel?unitSel.value:'گرم'):'عدد';
+  document.getElementById('qtyLabel').textContent=isResin?'حجم/وزن موجودی *':'تعداد موجودی *';
 }
 
 function addItem(){
@@ -514,7 +526,7 @@ function addItem(){
   const qty=parseInt(document.getElementById('ni-qty').value)||0;
   if(!name){alert('نام کالا الزامی است');return}
 
-  const unit=cat==='رزین'?'گرم':'عدد';
+  const unit=cat==='رزین'?(document.getElementById('ni-unit')?document.getElementById('ni-unit').value:'گرم'):'عدد';
   const code=genCode(cat);
   const id='item_'+Date.now();
   const item={
@@ -590,13 +602,19 @@ function openDetail(id){
       <button class="btn btn-danger" style="flex:1" onclick="changeQty('${i.id}',-1)">➖ کاهش موجودی</button>
     </div>`;
   document.getElementById('modal-detail').classList.remove('hidden');
-  setTimeout(()=>{
+  setTimeout(function(){
     const el=document.getElementById('modal-qr');
-    if(el&&typeof QRCode!=='undefined'){
-      el.innerHTML='';
-      try{new QRCode(el,{text:`CODE:${i.code}|NAME:${i.name}|SHELF:${i.shelf}|ROW:${i.row}|QTY:${i.qty}`,width:120,height:120,colorDark:'#111',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}
-    }
-  },150);
+    if(!el)return;
+    el.innerHTML='';
+    if(typeof QRCode==='undefined')return;
+    try{
+      new QRCode(el,{
+        text:'CODE:'+i.code+'|'+i.name+'|SHELF:'+i.shelf+'|ROW:'+i.row+'|QTY:'+i.qty,
+        width:120,height:120,colorDark:'#111',colorLight:'#ffffff',
+        correctLevel:QRCode.CorrectLevel.M
+      });
+    }catch(e){el.textContent='خطا در QR';}
+  },300);
 }
 
 function changeQty(id,dir){
@@ -618,34 +636,44 @@ function renderQR(){
   const grid=document.getElementById('qrGrid');
   grid.innerHTML='';
   if(!items.length){grid.innerHTML='<div style="color:#2e3350;font-size:14px;padding:32px">هنوز کالایی ثبت نشده</div>';return}
-  items.forEach(item=>{
+  items.forEach(function(item){
+    const safeId='qrb_'+item.id.replace(/[^a-zA-Z0-9_]/g,'_');
     const wrap=document.createElement('div');
     wrap.className='qr-card-wrap';
     wrap.title='کلیک برای دانلود QR';
-    wrap.innerHTML=`<div id="qrb-${item.id}"></div>
-      <div class="qr-name">${item.name}</div>
-      <div class="qr-code-text">${item.code}</div>
-      <div class="qr-loc">قفسه ${item.shelf||'-'} — ردیف ${item.row||'-'}</div>
-      <div style="font-size:10px;color:${item.qty<=item.minQty?'#dc2626':'#16a34a'};font-weight:700">${item.qty} ${item.unit} موجود</div>`;
-    wrap.onclick=()=>downloadQR(item.id,item.code);
+    wrap.innerHTML='<div id="'+safeId+'"></div>'
+      +'<div class="qr-name">'+item.name+'</div>'
+      +'<div class="qr-code-text">'+item.code+'</div>'
+      +'<div class="qr-loc">قفسه '+(item.shelf||'-')+' — ردیف '+(item.row||'-')+'</div>'
+      +'<div style="font-size:10px;color:'+(item.qty<=item.minQty?'#dc2626':'#16a34a')+';font-weight:700">'+item.qty+' '+item.unit+' موجود</div>';
+    wrap.onclick=function(){downloadQR(safeId,item.code);};
     grid.appendChild(wrap);
-    setTimeout(()=>{
-      const el=document.getElementById('qrb-'+item.id);
-      if(el&&typeof QRCode!=='undefined'){
-        try{new QRCode(el,{text:`CODE:${item.code}|NAME:${item.name}|SHELF:${item.shelf}|ROW:${item.row}|QTY:${item.qty}`,width:120,height:120,colorDark:'#111',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M})}catch(e){}
-      }
-    },100);
+    (function(sid,it){
+      setTimeout(function(){
+        const el=document.getElementById(sid);
+        if(!el)return;
+        el.innerHTML='';
+        if(typeof QRCode==='undefined'){el.innerHTML='<div style="color:red;font-size:10px">QR lib error</div>';return;}
+        try{
+          new QRCode(el,{
+            text:'CODE:'+it.code+'|'+it.name+'|SHELF:'+it.shelf+'|ROW:'+it.row+'|QTY:'+it.qty,
+            width:120,height:120,colorDark:'#111',colorLight:'#ffffff',
+            correctLevel:QRCode.CorrectLevel.M
+          });
+        }catch(e){el.innerHTML='<div style="color:red;font-size:10px">'+e.message+'</div>';}
+      },200);
+    })(safeId,item);
   });
 }
 
-function downloadQR(id,code){
-  const el=document.getElementById('qrb-'+id)||document.getElementById('modal-qr');
-  if(!el)return;
+function downloadQR(idOrSafeId,code){
+  const el=document.getElementById(idOrSafeId)||document.getElementById('modal-qr');
+  if(!el){alert('المان پیدا نشد');return;}
   const canvas=el.querySelector('canvas');
-  if(!canvas){alert('QR هنوز بارگذاری نشده');return}
+  if(!canvas){alert('QR هنوز آماده نشده — چند ثانیه صبر کنید');return;}
   const a=document.createElement('a');
   a.href=canvas.toDataURL('image/png');
-  a.download=`QR-${code}.png`;
+  a.download='QR-'+code+'.png';
   a.click();
 }
 
@@ -653,14 +681,24 @@ function downloadQR(id,code){
 //  GROQ AI CHAT
 // ═══════════════════════════════════════════════
 function buildContext(){
-  return`تو دستیار هوشمند انبار آزمایشگاه هستی. اطلاعات زیر را داری:
-
-کالاها (${items.length} قلم):
-${items.map(i=>`• ${i.code} | ${i.name} | ${i.cat} | قفسه:${i.shelf} ردیف:${i.row} | موجودی:${i.qty}${i.unit} | حداقل:${i.minQty} | ${i.qty<=i.minQty?'⚠️کم‌موجود':'✅موجود'}`).join('\n')}
-
-کم‌موجودها: ${items.filter(i=>i.qty<=i.minQty).map(i=>i.name).join('، ')||'ندارد'}
-
-به سوالات به فارسی کوتاه و مفید پاسخ بده. اگر کالایی پرسیده شد، قفسه و ردیف آن را دقیق بگو.`;
+  const total=items.reduce(function(s,i){return s+i.qty;},0);
+  return 'تو دستیار هوشمند انبار آزمایشگاه هستی و باید دقیق و کامل پاسخ بدی.\n\n'
+  +'قوانین مهم:\n'
+  +'- اگر پرسیدن «چند تا X داریم» → همه کالاهایی که اسمشان شامل X میشود را پیدا کن و تعدادشان را جمع بزن\n'
+  +'- اگر پرسیدن «X کجاست» → قفسه و ردیف دقیق را بگو\n'
+  +'- اگر پرسیدن «آیا X داریم» → موجودی دقیق را بگو\n'
+  +'- همیشه کد کالا، قفسه، ردیف و موجودی را ذکر کن\n'
+  +'- پاسخ را به فارسی و ساده بده\n\n'
+  +'لیست کامل کالاهای انبار ('+items.length+' قلم، مجموع: '+total+'):\n'
+  +items.map(function(i){
+    return '• کد:'+i.code+' | نام:'+i.name+' | دسته:'+i.cat
+      +' | قفسه:'+i.shelf+' ردیف:'+i.row
+      +' | موجودی:'+i.qty+' '+i.unit
+      +' | حداقل:'+i.minQty
+      +(i.desc?' | توضیح:'+i.desc:'')
+      +' | '+(i.qty<=i.minQty?'⚠️کم‌موجود':'✅موجود');
+  }).join('\n')
+  +'\n\nکم‌موجودها: '+(items.filter(function(i){return i.qty<=i.minQty;}).map(function(i){return i.name;}).join('، ')||'ندارد');
 }
 
 function addBubble(role,text){
@@ -678,7 +716,7 @@ function addBubble(role,text){
 
 async function sendChat(){
   const key=loadGroqKey();
-  if(!key){alert('لطفاً ابتدا Groq API Key را در همین صفحه وارد کنید');return}
+  if(!key){return}
   const msg=document.getElementById('aiMsg').value.trim();
   if(!msg)return;
   document.getElementById('aiMsg').value='';
