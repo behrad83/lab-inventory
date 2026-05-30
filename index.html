@@ -714,14 +714,15 @@ function addBubble(role,text){
   box.appendChild(div);box.scrollTop=box.scrollHeight;
 }
 
-async function sendChat(){
-  const key=loadGroqKey();
-  if(!key){return}
+function sendChat(){
   const msg=document.getElementById('aiMsg').value.trim();
   if(!msg)return;
   document.getElementById('aiMsg').value='';
   document.getElementById('sendBtn').disabled=true;
   document.getElementById('sendBtn').textContent='...';
+
+  const ph=document.getElementById('chatPlaceholder');
+  if(ph)ph.remove();
   addBubble('user',msg);
   chatHistory.push({role:'user',content:msg});
 
@@ -731,28 +732,53 @@ async function sendChat(){
   document.getElementById('chatBox').appendChild(typing);
   document.getElementById('chatBox').scrollTop=9999;
 
-  try{
-    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body:JSON.stringify({
-        model:'llama-3.3-70b-versatile',
-        messages:[{role:'system',content:buildContext()},...chatHistory.slice(-10)],
-        max_tokens:700,temperature:0.3
-      })
-    });
-    const data=await res.json();
+  // از Apps Script به عنوان proxy استفاده می‌کنیم — از همه جا کار می‌کنه
+  const cbName='aiCb_'+Date.now();
+  const ctx=buildContext();
+  // فقط آخرین پیام رو می‌فرستیم — چون URL محدودیت طول داره
+  const params=new URLSearchParams({
+    action:'ai',
+    callback:cbName,
+    q:msg,
+    ctx:ctx.slice(0,2000)
+  });
+
+  window[cbName]=function(data){
     typing.remove();
-    if(data.error){addBubble('assistant','❌ خطا: '+data.error.message);return}
-    const reply=data.choices[0].message.content;
-    chatHistory.push({role:'assistant',content:reply});
-    addBubble('assistant',reply);
-  }catch(e){
+    if(data.answer){
+      chatHistory.push({role:'assistant',content:data.answer});
+      addBubble('assistant',data.answer);
+    } else {
+      addBubble('assistant','❌ خطا در دریافت پاسخ');
+    }
+    delete window[cbName];
+    const s=document.getElementById(cbName);if(s)s.remove();
+    document.getElementById('sendBtn').disabled=false;
+    document.getElementById('sendBtn').textContent='ارسال ↵';
+  };
+
+  const script=document.createElement('script');
+  script.id=cbName;
+  script.src=loadSheetUrl()+'?'+params.toString();
+  script.onerror=function(){
     typing.remove();
-    addBubble('assistant','❌ خطا در اتصال. API Key و اینترنت را بررسی کنید.');
-  }
-  document.getElementById('sendBtn').disabled=false;
-  document.getElementById('sendBtn').textContent='ارسال ↵';
+    addBubble('assistant','❌ خطا در اتصال. اینترنت را بررسی کنید.');
+    delete window[cbName];this.remove();
+    document.getElementById('sendBtn').disabled=false;
+    document.getElementById('sendBtn').textContent='ارسال ↵';
+  };
+  // timeout 15 ثانیه
+  setTimeout(function(){
+    if(window[cbName]){
+      typing.remove();
+      addBubble('assistant','❌ زمان پاسخ تمام شد. دوباره تلاش کنید.');
+      delete window[cbName];
+      const s=document.getElementById(cbName);if(s)s.remove();
+      document.getElementById('sendBtn').disabled=false;
+      document.getElementById('sendBtn').textContent='ارسال ↵';
+    }
+  },15000);
+  document.head.appendChild(script);
 }
 
 async function testGroq(){
