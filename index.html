@@ -467,50 +467,50 @@ function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 //  AUTH
 // ═══════════════════════════════════════════════
 function doLogin(){
-  const u=document.getElementById('loginUser').value.trim();
-  const p=document.getElementById('loginPass').value;
-  if(!u||!p){document.getElementById('loginErr').textContent='نام کاربری و رمز را وارد کنید';return;}
-  document.getElementById('loginErr').style.color='#9aa3c2';
-  document.getElementById('loginErr').textContent='در حال بررسی...';
+  const user = document.getElementById('loginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  if(!user||!pass){err.textContent='نام کاربری و رمز را وارد کنید';return;}
+  err.style.color='#9aa3c2';
+  err.textContent='در حال بررسی...';
 
-  function tryLogin(userList){
-    const defaults=[{user:'admin',pass:'lab1234',role:'admin',name:'مدیر سیستم',active:'true'}];
-    const all=[...defaults,...(userList||[])];
-    const found=all.find(x=>String(x.user)===u&&String(x.pass)===p&&String(x.active)!=='false');
-    if(!found){
-      document.getElementById('loginErr').style.color='#f87171';
-      document.getElementById('loginErr').textContent='نام کاربری یا رمز اشتباه است';
+  // ادمین اصلی همیشه کار می‌کنه
+  if(user==='admin'&&pass==='lab1234'){
+    enterApp({user:'admin',pass:'lab1234',role:'admin',name:'مدیر سیستم',active:'true'});
+    return;
+  }
+
+  // بقیه از Sheet
+  callSheet('getUsers',{t:Date.now()},function(data){
+    if(!Array.isArray(data)||data.length===0){
+      err.style.color='#f87171';
+      err.textContent='خطا در اتصال. دوباره تلاش کنید.';
       return;
     }
-    const existing=USERS.findIndex(x=>x.user===found.user);
-    if(existing>=0)USERS[existing]=found; else USERS.push(found);
-    saveUsers();
-    currentUser=found;
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('app').classList.remove('hidden');
-    document.getElementById('userLabel').textContent=found.name||found.user;
-    renderDashboard();
-    loadFromSheet();
-    applyRoleUI();
-  }
-
-  const url=loadSheetUrl();
-  if(url){
-    const cbName='loginCb_'+Date.now();
-    window[cbName]=function(data){
-      delete window[cbName];
-      const s=document.getElementById(cbName);if(s)s.remove();
-      tryLogin(Array.isArray(data)?data:[]);
-    };
-    const script=document.createElement('script');
-    script.id=cbName;
-    script.src=url+'?action=getUsers&callback='+cbName+'&t='+Date.now();
-    script.onerror=function(){delete window[cbName];this.remove();tryLogin(USERS);};
-    document.head.appendChild(script);
-  } else {
-    tryLogin(USERS);
-  }
+    const found=data.find(function(u){
+      return String(u.user).toLowerCase()===user &&
+             String(u.pass)===pass &&
+             String(u.active)==='true';
+    });
+    if(!found){
+      err.style.color='#f87171';
+      err.textContent='نام کاربری یا رمز اشتباه است';
+      return;
+    }
+    enterApp(found);
+  });
 }
+
+function enterApp(u){
+  currentUser=u;
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('userLabel').textContent=u.name||u.user;
+  renderDashboard();
+  loadFromSheet();
+  applyRoleUI();
+}
+
 function doLogout(){
   currentUser=null;
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -519,12 +519,15 @@ function doLogout(){
   document.getElementById('loginUser').value='';
   document.getElementById('loginPass').value='';
   document.getElementById('loginErr').textContent='';
+  document.getElementById('loginErr').style.color='#f87171';
 }
 
 function showRegister(){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('registerScreen').classList.remove('hidden');
   document.getElementById('regErr').textContent='';
+  document.getElementById('regUser').value='';
+  document.getElementById('regPass').value='';
 }
 
 function showLogin(){
@@ -533,63 +536,199 @@ function showLogin(){
 }
 
 function doRegister(){
-  const user=document.getElementById('regUser').value.trim();
+  const user=document.getElementById('regUser').value.trim().toLowerCase();
   const pass=document.getElementById('regPass').value;
   const err=document.getElementById('regErr');
 
-  if(!user||!pass){err.textContent='نام کاربری و رمز عبور الزامی است';return;}
-  if(pass.length<4){err.textContent='رمز عبور باید حداقل ۴ کاراکتر باشد';return;}
-  if(USERS.find(u=>u.user===user)||PENDING.find(u=>u.user===user)){
-    err.textContent='این نام کاربری قبلاً ثبت شده';return;
-  }
+  if(!user||!pass){err.textContent='نام کاربری و رمز الزامی است';return;}
+  if(pass.length<4){err.textContent='رمز باید حداقل ۴ کاراکتر باشد';return;}
+  if(user==='admin'){err.textContent='این نام کاربری مجاز نیست';return;}
 
-  const req={id:'p_'+Date.now(),name:user,user,pass,role:'pending',date:new Date().toLocaleDateString('fa-IR'),active:false};
-  PENDING.push(req);
-  savePending();
-  syncPendingToSheet(req);
+  err.style.color='#9aa3c2';
+  err.textContent='در حال بررسی...';
 
-  showLogin();
-  document.getElementById('loginErr').style.color='#4ade80';
-  document.getElementById('loginErr').textContent='✅ درخواست ارسال شد — منتظر تأیید ادمین باشید';
-  setTimeout(()=>{
-    document.getElementById('loginErr').textContent='';
-    document.getElementById('loginErr').style.color='#f87171';
-  },5000);
-}
+  // یه بار چک کن - کاربران فعال
+  callSheet('getUsers',{t:Date.now()},function(users){
+    // چک کن - درخواست‌های در انتظار
+    callSheet('getPending',{t:Date.now()},function(pending){
+      const inUsers=Array.isArray(users)&&users.find(function(u){return String(u.user).toLowerCase()===user;});
+      const inPending=Array.isArray(pending)&&pending.find(function(u){return String(u.user).toLowerCase()===user;});
 
-function syncPendingToSheet(req){
-  const url=loadSheetUrl();
-  if(!url)return;
-  const cbName='regCb_'+Date.now();
-  const params=new URLSearchParams({
-    action:'addPending',callback:cbName,
-    id:req.id,name:req.name,user:req.user,
-    pass:req.pass,role:req.role,date:req.date
-  });
-  window[cbName]=function(){delete window[cbName];const s=document.getElementById(cbName);if(s)s.remove();};
-  const script=document.createElement('script');
-  script.id=cbName;script.src=url+'?'+params.toString();
-  document.head.appendChild(script);
-}
-
-async function loadPendingFromSheet(){
-  const url=loadSheetUrl();
-  if(!url)return;
-  const cbName='loadPendCb_'+Date.now();
-  window[cbName]=function(data){
-    if(Array.isArray(data)){
-      PENDING=data.filter(d=>d.id&&!d.approved);
-      savePending();
-      if(document.getElementById('view-users')&&!document.getElementById('view-users').classList.contains('hidden')){
-        renderPending();renderActiveUsers();
+      if(inUsers||inPending){
+        err.style.color='#f87171';
+        err.textContent='این نام کاربری قبلاً ثبت شده است';
+        return;
       }
-    }
-    delete window[cbName];const s=document.getElementById(cbName);if(s)s.remove();
+
+      // اضافه کن به pending
+      const id='p_'+Date.now();
+      callSheet('addPending',{id,user,pass,date:new Date().toLocaleDateString('fa-IR')},function(res){
+        showLogin();
+        document.getElementById('loginErr').style.color='#4ade80';
+        document.getElementById('loginErr').textContent='✅ درخواست ارسال شد — منتظر تأیید ادمین باشید';
+        setTimeout(function(){
+          document.getElementById('loginErr').textContent='';
+          document.getElementById('loginErr').style.color='#f87171';
+        },6000);
+      });
+    });
+  });
+}
+
+function callSheet(action,params,callback){
+  const url=loadSheetUrl();
+  if(!url){callback({error:'no url'});return;}
+  const cbName='cb_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  const p=new URLSearchParams({action,callback:cbName});
+  Object.keys(params).forEach(function(k){p.append(k,params[k]);});
+  window[cbName]=function(data){
+    delete window[cbName];
+    const s=document.getElementById(cbName);if(s)s.remove();
+    callback(data);
   };
   const script=document.createElement('script');
   script.id=cbName;
-  script.src=url+'?action=getPending&callback='+cbName+'&t='+Date.now();
+  script.src=url+'?'+p.toString();
+  script.onerror=function(){delete window[cbName];this.remove();callback({error:true});};
+  setTimeout(function(){
+    if(window[cbName]){delete window[cbName];const s=document.getElementById(cbName);if(s)s.remove();callback({error:'timeout'});}
+  },12000);
   document.head.appendChild(script);
+}
+
+function loadPendingFromSheet(){
+  callSheet('getPending',{t:Date.now()},function(data){
+    if(Array.isArray(data)){
+      PENDING=data.filter(function(d){return d.id&&String(d.approved)!=='true';});
+      savePending();
+      renderPending();
+      renderActiveUsers();
+    }
+  });
+}
+
+
+// ═══════════════════════════════════════════════
+//  USER MANAGEMENT
+// ═══════════════════════════════════════════════
+function renderPending(){
+  const el=document.getElementById('pendingList');
+  if(!el)return;
+  if(!PENDING.length){
+    el.innerHTML='<div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">درخواستی وجود ندارد</div>';
+    return;
+  }
+  el.innerHTML=PENDING.map(function(p){return `
+    <div style="background:#0b0d14;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #1a1d2e">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-weight:600;font-size:15px;color:#e2e4f0">@${p.user}</div>
+          <div style="color:#5a6080;font-size:12px;margin-top:3px">تاریخ درخواست: ${p.date}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="rejectPending('${p.id}')">❌ رد</button>
+      </div>
+      <div style="font-size:12px;color:#9aa3c2;margin-bottom:8px">نوع دسترسی را انتخاب کنید:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="approvePending('${p.id}','viewer')"
+          style="background:#1e3a5f;color:#60a5fa;flex:1;min-width:100px">👁️ فقط مشاهده</button>
+        <button class="btn btn-sm" onclick="approvePending('${p.id}','operator')"
+          style="background:#1a3a2a;color:#4ade80;flex:1;min-width:100px">📦 افزودن کالا</button>
+        <button class="btn btn-sm" onclick="approvePending('${p.id}','admin')"
+          style="background:#3b1f5e;color:#c084fc;flex:1;min-width:100px">⚙️ ادمین کامل</button>
+      </div>
+    </div>`;}).join('');
+}
+
+function approvePending(id, role){
+  const p=PENDING.find(function(x){return x.id===id;});
+  if(!p)return;
+  // اضافه کردن کاربر به sheet کاربران
+  callSheet('addUser',{user:p.user,pass:p.pass,role:role,name:p.user,active:'true'},function(){
+    // علامت‌گذاری به عنوان تأیید شده در pending
+    callSheet('approvePending',{id:id},function(){
+      PENDING=PENDING.filter(function(x){return x.id!==id;});
+      savePending();
+      renderPending();
+      renderActiveUsers();
+      alert('کاربر @'+p.user+' با دسترسی '+role+' تأیید شد ✅');
+    });
+  });
+}
+
+function rejectPending(id){
+  const p=PENDING.find(function(x){return x.id===id;});
+  if(!p||!confirm('درخواست @'+p.user+' رد شود؟'))return;
+  callSheet('rejectPending',{id:id},function(){
+    PENDING=PENDING.filter(function(x){return x.id!==id;});
+    savePending();
+    renderPending();
+  });
+}
+
+function renderActiveUsers(){
+  const el=document.getElementById('activeUserList');
+  if(!el)return;
+  el.innerHTML=USERS.map(function(u,i){
+    var roleColor=ROLES[u.role]?ROLES[u.role].color:'#9aa3c2';
+    var roleLabel=ROLES[u.role]?ROLES[u.role].label:u.role;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0b0d14;border-radius:10px;margin-bottom:6px">
+      <div>
+        <span style="font-weight:600;font-size:13px">${u.name||u.user}</span>
+        <span style="color:#5a6080;font-size:12px;margin-right:8px">@${u.user}</span>
+        <span style="background:${roleColor}22;color:${roleColor};padding:2px 8px;border-radius:10px;font-size:11px">${roleLabel}</span>
+      </div>
+      ${i===0?'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>':`
+      <div style="display:flex;gap:6px;align-items:center">
+        <select onchange="changeUserRole('${u.user}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:4px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
+          <option value="viewer" ${u.role==='viewer'?'selected':''}>مشاهده</option>
+          <option value="operator" ${u.role==='operator'?'selected':''}>اپراتور</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>ادمین</option>
+        </select>
+        <button class="btn btn-danger btn-sm" onclick="removeUser('${u.user}')">حذف</button>
+      </div>`}
+    </div>`;
+  }).join('');
+}
+
+function changeUserRole(username, role){
+  callSheet('updateUserRole',{user:username,role:role},function(){
+    USERS=USERS.map(function(u){return u.user===username?Object.assign({},u,{role:role}):u;});
+    saveUsers();renderActiveUsers();
+  });
+}
+
+function removeUser(username){
+  if(!confirm('کاربر @'+username+' حذف شود؟'))return;
+  callSheet('deleteUser',{user:username},function(){
+    USERS=USERS.filter(function(u){return u.user!==username;});
+    saveUsers();renderActiveUsers();
+  });
+}
+
+function addUserDirect(){
+  const user=document.getElementById('newUserName').value.trim().toLowerCase();
+  const pass=document.getElementById('newUserPass').value;
+  const role=document.getElementById('newUserRole').value;
+  if(!user||!pass){alert('نام کاربری و رمز الزامی است');return;}
+  if(USERS.find(function(u){return u.user===user;})){alert('این کاربر وجود دارد');return;}
+  callSheet('addUser',{user,pass,role,name:user,active:'true'},function(){
+    USERS.push({user,pass,role,name:user,active:'true'});
+    saveUsers();
+    document.getElementById('newUserName').value='';
+    document.getElementById('newUserPass').value='';
+    renderActiveUsers();
+  });
+}
+
+function applyRoleUI(){
+  const isAdmin=canDo('users');
+  const canAdd=canDo('add');
+  document.querySelectorAll('.nav').forEach(function(n){
+    const txt=n.textContent.trim();
+    if(txt.includes('کاربران'))n.style.display=isAdmin?'flex':'none';
+    if(txt.includes('تنظیمات'))n.style.display=isAdmin?'flex':'none';
+    if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
+  });
 }
 
 // ═══════════════════════════════════════════════
@@ -1018,210 +1157,23 @@ function deleteFromSheet(id){
 }
 
 function loadFromSheet(){
-  const url=loadSheetUrl();
-  const statusEl=document.getElementById('syncStatus');
-  if(!url){if(statusEl)statusEl.textContent='لینک Sheet تنظیم نشده';return;}
-  if(statusEl)statusEl.textContent='در حال بارگذاری...';
-
-  // JSONP - راه‌حل CORS
-  const cbName='sheetCb_'+Date.now();
-  window[cbName]=function(data){
-    try{
-      if(Array.isArray(data)&&data.length>0){
-        items=data.map(function(d){return{
-          id:String(d.id||'item_'+Math.random()),
-          code:String(d.code||''),name:String(d.name||''),desc:String(d.desc||''),
-          cat:String(d.cat||'آزمایشگاه'),qty:Number(d.qty)||0,unit:String(d.unit||'عدد'),
-          shelf:String(d.shelf||'-'),row:String(d.row||'-'),minQty:Number(d.minQty)||0,date:String(d.date||'')
-        };});
-        saveItems();
-        renderDashboard();
-        if(statusEl)statusEl.textContent='✅ '+items.length+' کالا از Google Sheets بارگذاری شد';
-      }else{
-        if(statusEl)statusEl.textContent='⚠️ Sheet خالی است';
-      }
-    }catch(e){
-      if(statusEl)statusEl.textContent='⚠️ خطا در پردازش داده‌ها';
-    }finally{
-      delete window[cbName];
-      const s=document.getElementById(cbName);
-      if(s)s.remove();
+  const statusEl = document.getElementById('syncStatus');
+  if(statusEl) statusEl.textContent = 'در حال بارگذاری...';
+  callSheet('read', {t:Date.now()}, function(data){
+    if(Array.isArray(data) && data.length > 0){
+      items = data.map(d=>({
+        id:String(d.id||'item_'+Math.random()),
+        code:String(d.code||''), name:String(d.name||''), desc:String(d.desc||''),
+        cat:String(d.cat||'آزمایشگاه'), qty:Number(d.qty)||0, unit:String(d.unit||'عدد'),
+        shelf:String(d.shelf||'-'), row:String(d.row||'-'), minQty:Number(d.minQty)||0, date:String(d.date||'')
+      }));
+      saveItems();
+      renderDashboard();
+      if(statusEl) statusEl.textContent = '✅ '+items.length+' کالا بارگذاری شد';
+    } else {
+      if(statusEl) statusEl.textContent = items.length ? '✅ '+items.length+' کالا (حافظه محلی)' : '⚠️ انبار خالی است';
     }
-  };
-
-  const script=document.createElement('script');
-  script.id=cbName;
-  script.src=url+'?callback='+cbName+'&t='+Date.now();
-  script.onerror=function(){
-    if(statusEl)statusEl.textContent='⚠️ خطا در اتصال به Sheet';
-    delete window[cbName];
-    this.remove();
-  };
-  document.head.appendChild(script);
-}
-
-// ═══════════════════════════════════════════════
-//  USER MANAGEMENT
-// ═══════════════════════════════════════════════
-function renderUserList(){
-  document.getElementById('userList').innerHTML=USERS.map((u,i)=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:#0b0d14;margin-bottom:6px;font-size:13px">
-      <div><span style="color:#e2e4f0">${u.user}</span> <span class="tag" style="background:#1e2235;color:#5a6080;font-size:10px">${u.role}</span></div>
-      ${i>0?`<button class="btn btn-danger btn-sm" onclick="removeUser(${i})">حذف</button>`:'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>'}
-    </div>`).join('');
-}
-function addUser(){
-  const u=document.getElementById('newUser').value.trim();
-  const p=document.getElementById('newPass').value;
-  if(!u||!p){alert('نام و رمز الزامی است');return}
-  if(USERS.find(x=>x.user===u)){alert('این کاربر وجود دارد');return}
-  USERS.push({user:u,pass:p,role:'user'});
-  saveUsers();renderUserList();
-  document.getElementById('newUser').value='';document.getElementById('newPass').value='';
-}
-function removeUser(i){if(confirm('حذف شود؟')){USERS.splice(i,1);saveUsers();renderUserList()}}
-
-// ═══════════════════════════════════════════════
-//  USER MANAGEMENT
-// ═══════════════════════════════════════════════
-function renderPending(){
-  const el=document.getElementById('pendingList');
-  if(!el)return;
-  if(!PENDING.length){
-    el.innerHTML='<div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">درخواستی وجود ندارد</div>';
-    return;
-  }
-  el.innerHTML=PENDING.map(p=>`
-    <div style="background:#0b0d14;border-radius:10px;padding:14px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <div>
-          <div style="font-weight:600;font-size:14px">@${p.user}</div>
-          <div style="color:#5a6080;font-size:12px;margin-top:2px">درخواست در: ${p.date}</div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="rejectPending('${p.id}')">❌ رد درخواست</button>
-      </div>
-      <div style="font-size:12px;color:#5a6080;margin-bottom:6px">نوع دسترسی را تعیین کنید:</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-sm" onclick="approvePendingWithRole('${p.id}','viewer')"
-          style="background:#1e3a5f;color:#60a5fa;flex:1">👁️ فقط مشاهده</button>
-        <button class="btn btn-sm" onclick="approvePendingWithRole('${p.id}','operator')"
-          style="background:#1a3a2a;color:#4ade80;flex:1">📦 افزودن و جستجو</button>
-        <button class="btn btn-sm" onclick="approvePendingWithRole('${p.id}','admin')"
-          style="background:#3b1f5e;color:#c084fc;flex:1">⚙️ ادمین کامل</button>
-      </div>
-    </div>`).join('');
-}
-
-function approvePendingWithRole(id, role){
-  PENDING=PENDING.map(p=>p.id===id?{...p,role}:p);
-  savePending();
-  approvePending(id);
-}
-
-function changePendingRole(id,role){
-  PENDING=PENDING.map(p=>p.id===id?{...p,role}:p);
-  savePending();
-}
-
-function approvePending(id){
-  const p=PENDING.find(x=>x.id===id);
-  if(!p)return;
-  USERS.push({user:p.user,pass:p.pass,role:p.role,name:p.user,active:true});
-  saveUsers();
-  PENDING=PENDING.filter(x=>x.id!==id);
-  savePending();
-  approveInSheet(id);
-  renderPending();renderActiveUsers();
-}
-
-function rejectPending(id){
-  if(!confirm('این درخواست رد شود؟'))return;
-  PENDING=PENDING.filter(x=>x.id!==id);
-  savePending();
-  rejectInSheet(id);
-  renderPending();
-}
-
-function approveInSheet(id){
-  const url=loadSheetUrl();if(!url)return;
-  const cb='appCb_'+Date.now();
-  window[cb]=function(){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();};
-  const s=document.createElement('script');s.id=cb;
-  s.src=url+'?action=approvePending&id='+encodeURIComponent(id)+'&callback='+cb;
-  document.head.appendChild(s);
-}
-
-function rejectInSheet(id){
-  const url=loadSheetUrl();if(!url)return;
-  const cb='rejCb_'+Date.now();
-  window[cb]=function(){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();};
-  const s=document.createElement('script');s.id=cb;
-  s.src=url+'?action=rejectPending&id='+encodeURIComponent(id)+'&callback='+cb;
-  document.head.appendChild(s);
-}
-
-function renderActiveUsers(){
-  const el=document.getElementById('activeUserList');
-  if(!el)return;
-  el.innerHTML=USERS.map((u,i)=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0b0d14;border-radius:10px;margin-bottom:6px">
-      <div>
-        <span style="font-weight:600;font-size:13px">${u.name||u.user}</span>
-        <span style="color:#5a6080;font-size:12px;margin-right:8px">@${u.user}</span>
-        <span style="background:${ROLES[u.role]?.color||'#9aa3c2'}22;color:${ROLES[u.role]?.color||'#9aa3c2'};padding:2px 8px;border-radius:10px;font-size:11px">${ROLES[u.role]?.label||u.role}</span>
-      </div>
-      ${i===0?'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>':`
-      <div style="display:flex;gap:6px;align-items:center">
-        <select onchange="changeUserRole('${u.user}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:4px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
-          <option value="viewer" ${u.role==='viewer'?'selected':''}>مشاهده</option>
-          <option value="operator" ${u.role==='operator'?'selected':''}>اپراتور</option>
-          <option value="admin" ${u.role==='admin'?'selected':''}>ادمین</option>
-        </select>
-        <button class="btn btn-danger btn-sm" onclick="removeUser('${u.user}')">حذف</button>
-      </div>`}
-    </div>`).join('');
-}
-
-function changeUserRole(username,role){
-  USERS=USERS.map(u=>u.user===username?{...u,role}:u);
-  saveUsers();renderActiveUsers();
-}
-
-function removeUser(username){
-  if(!confirm('کاربر حذف شود؟'))return;
-  USERS=USERS.filter(u=>u.user!==username);
-  saveUsers();renderActiveUsers();
-}
-
-function addUserDirect(){
-  const user=document.getElementById('newUserName').value.trim();
-  const pass=document.getElementById('newUserPass').value;
-  const role=document.getElementById('newUserRole').value;
-  if(!user||!pass){alert('نام کاربری و رمز الزامی است');return;}
-  if(USERS.find(u=>u.user===user)){alert('این کاربر وجود دارد');return;}
-  USERS.push({user,pass,role,name:user,active:true});
-  saveUsers();
-  document.getElementById('newUserName').value='';
-  document.getElementById('newUserPass').value='';
-  renderActiveUsers();
-}
-
-// ═══════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════
-function applyRoleUI(){
-  const isAdmin=canDo('users');
-  const canAdd=canDo('add');
-  // مخفی کردن منوهای محدود
-  document.querySelectorAll('.nav').forEach(n=>{
-    const txt=n.textContent.trim();
-    if(txt.includes('کاربران'))n.style.display=isAdmin?'flex':'none';
-    if(txt.includes('تنظیمات'))n.style.display=isAdmin?'flex':'none';
-    if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
   });
 }
 
-document.getElementById('loginPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-</script>
-</body>
-</html>
+
