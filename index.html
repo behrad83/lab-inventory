@@ -536,42 +536,43 @@ function showLogin(){
 }
 
 function doRegister(){
-  const user=document.getElementById('regUser').value.trim().toLowerCase();
-  const pass=document.getElementById('regPass').value;
-  const err=document.getElementById('regErr');
+  // جلوگیری از کلیک چندتایی
+  const btn = document.querySelector('#registerScreen .login-btn');
+  if(btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'در حال ارسال...';
 
-  if(!user||!pass){err.textContent='نام کاربری و رمز الزامی است';return;}
-  if(pass.length<4){err.textContent='رمز باید حداقل ۴ کاراکتر باشد';return;}
-  if(user==='admin'){err.textContent='این نام کاربری مجاز نیست';return;}
+  const user = document.getElementById('regUser').value.trim().toLowerCase();
+  const pass = document.getElementById('regPass').value;
+  const err = document.getElementById('regErr');
+
+  function resetBtn(){ btn.disabled=false; btn.textContent='ارسال درخواست'; }
+
+  if(!user||!pass){ err.textContent='نام کاربری و رمز الزامی است'; resetBtn(); return; }
+  if(pass.length<4){ err.textContent='رمز باید حداقل ۴ کاراکتر باشد'; resetBtn(); return; }
+  if(user==='admin'){ err.textContent='این نام کاربری مجاز نیست'; resetBtn(); return; }
 
   err.style.color='#9aa3c2';
   err.textContent='در حال بررسی...';
 
-  // یه بار چک کن - کاربران فعال
-  callSheet('getUsers',{t:Date.now()},function(users){
-    // چک کن - درخواست‌های در انتظار
-    callSheet('getPending',{t:Date.now()},function(pending){
-      const inUsers=Array.isArray(users)&&users.find(function(u){return String(u.user).toLowerCase()===user;});
-      const inPending=Array.isArray(pending)&&pending.find(function(u){return String(u.user).toLowerCase()===user;});
-
-      if(inUsers||inPending){
-        err.style.color='#f87171';
-        err.textContent='این نام کاربری قبلاً ثبت شده است';
-        return;
-      }
-
-      // اضافه کن به pending
-      const id='p_'+Date.now();
-      callSheet('addPending',{id,user,pass,date:new Date().toLocaleDateString('fa-IR')},function(res){
-        showLogin();
-        document.getElementById('loginErr').style.color='#4ade80';
-        document.getElementById('loginErr').textContent='✅ درخواست ارسال شد — منتظر تأیید ادمین باشید';
-        setTimeout(function(){
-          document.getElementById('loginErr').textContent='';
-          document.getElementById('loginErr').style.color='#f87171';
-        },6000);
-      });
-    });
+  // یه درخواست واحد به Sheet برای چک کردن
+  callSheet('checkAndRegister', {user:user, pass:pass, date:new Date().toLocaleDateString('fa-IR')}, function(res){
+    resetBtn();
+    if(res.status==='exists'){
+      err.style.color='#f87171';
+      err.textContent='این نام کاربری قبلاً ثبت شده است';
+    } else if(res.status==='ok'){
+      showLogin();
+      document.getElementById('loginErr').style.color='#4ade80';
+      document.getElementById('loginErr').textContent='✅ درخواست ارسال شد — منتظر تأیید ادمین باشید';
+      setTimeout(function(){
+        document.getElementById('loginErr').textContent='';
+        document.getElementById('loginErr').style.color='#f87171';
+      },6000);
+    } else {
+      err.style.color='#f87171';
+      err.textContent='خطا در ارسال. دوباره تلاش کنید.';
+    }
   });
 }
 
