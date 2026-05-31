@@ -259,11 +259,10 @@ tr:hover td{background:#0e1018}
             <input type="file" id="ni-image-gallery" accept="image/*" style="display:none" onchange="previewAndUpload(this,'ni-img-preview','ni-img-status','')">
             <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image-file').click()">📷 دوربین</button>
             <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image-gallery').click()">🖼️ گالری</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="showDebug()" style="font-size:10px;padding:4px 6px">🐛</button>
             <span id="ni-img-status" style="font-size:12px;color:#5a6080"></span>
           </div>
           <div id="ni-img-preview" style="margin-top:8px;display:none">
-            <img style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e">
+            <img style="max-width:100%;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14">
           </div>
           <input type="hidden" id="ni-image-url" value="">
         </div>
@@ -387,7 +386,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbwu6-HqWJj-X7FAvwTIZyspdr5te6x65ckI4Bl7VhiBSuaBSUo_BHg-jNXo5sHt9RUx/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyXYyPAfBisPau2qaOhBd2q-vgR63itaBACu_jcA4VItpTI9tkh1L6tLyIWRFsvxy5w/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -505,7 +504,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbwu6-HqWJj-X7FAvwTIZyspdr5te6x65ckI4Bl7VhiBSuaBSUo_BHg-jNXo5sHt9RUx/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyXYyPAfBisPau2qaOhBd2q-vgR63itaBACu_jcA4VItpTI9tkh1L6tLyIWRFsvxy5w/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -916,8 +915,8 @@ function addItem(){
   saveItems();
   callSheet('add',item,function(){});
 
-  // ذخیره لینک عکس آپلود شده
-  const imgUrl=document.getElementById('ni-image-url').value.trim();
+  // لینک عکس از آپلود
+  const imgUrl = document.getElementById('ni-image-url').value.trim();
   if(imgUrl){
     items=items.map(function(i){return i.id===id?Object.assign({},i,{image:imgUrl}):i;});
     saveItems();
@@ -982,12 +981,8 @@ function clearAddForm(keepResult=false){
   ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
     const el=document.getElementById(id);if(el)el.value='';
   });
-  const niFile = document.getElementById('ni-image-file');
-  if(niFile) niFile.value='';
   const niPrev = document.getElementById('ni-img-preview');
   if(niPrev) niPrev.style.display='none';
-  const niStatus = document.getElementById('ni-img-status');
-  if(niStatus) niStatus.textContent='';
   document.getElementById('ni-cat').value='آزمایشگاه';
   toggleUnit();
   if(!keepResult)document.getElementById('addResult').classList.add('hidden');
@@ -1093,19 +1088,13 @@ function openDetail(id){
         </select>
       </div>
       <div class="form-group" style="margin-top:8px">
-        <label>تغییر عکس کالا</label>
-        ${i.image?`<div style="margin-bottom:10px"><img src="${i.image}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14"></div>`:''}
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="file" id="edit-img-file-${i.id}" accept="image/*" capture="environment" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
-          <input type="file" id="edit-img-gallery-${i.id}" accept="image/*" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-img-file-${i.id}').click()">📷 دوربین</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-img-gallery-${i.id}').click()">🖼️ گالری</button>
-          <span id="edit-img-status-${i.id}" style="font-size:12px;color:#5a6080"></span>
-        </div>
+        <label>عکس کالا</label>
+        ${i.image?`<div style="margin-bottom:10px"><img src="${i.image}" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14"></div>`:''}
+        <input class="inp" id="edit-image-url-${i.id}" value="${i.image||''}" placeholder="لینک جدید از Google Drive..." oninput="previewDriveImage(this.value,'edit-img-prev-${i.id}')">
+        <div style="font-size:11px;color:#5a6080;margin-top:4px">Google Drive → Share → Anyone with link → Copy link</div>
         <div id="edit-img-prev-${i.id}" style="margin-top:8px;display:none">
-          <img style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e">
+          <img style="max-width:100%;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14">
         </div>
-        <input type="hidden" id="edit-image-url-${i.id}" value="${i.image||''}">
       </div>
       <div style="display:flex;gap:10px;margin-top:6px">
         <button class="btn btn-primary" style="flex:1" onclick="saveEdit('${i.id}')">💾 ذخیره تغییرات</button>
@@ -1157,10 +1146,10 @@ function saveEdit(id){
   });
 
   // ذخیره لینک عکس جدید
-  const imgUrlInput=document.getElementById('edit-image-url-'+id);
+  const imgUrlInput = document.getElementById('edit-image-url-'+id);
   if(imgUrlInput){
-    const newImgUrl=imgUrlInput.value.trim();
-    if(newImgUrl&&newImgUrl!==item.image){
+    const newImgUrl = convertDriveUrl(imgUrlInput.value.trim());
+    if(newImgUrl !== (item.image||'')){
       items=items.map(function(i){return i.id===id?Object.assign({},i,{image:newImgUrl}):i;});
       saveItems();
       callSheet('updateImage',{id:id,image:newImgUrl},function(){});
@@ -1536,7 +1525,7 @@ async function uploadToArvan(file, itemId, statusEl){
 
   setStatus('فشرده‌سازی...');
   try{
-    // کیفیت خوب - هدف 30KB
+    // هدف زیر 30KB
     var maxSize = 800, quality = 0.85;
     var compressed = await compressImage(file, maxSize, quality);
     var tries = 0;
@@ -1546,7 +1535,7 @@ async function uploadToArvan(file, itemId, statusEl){
       compressed = await compressImage(file, maxSize, quality);
       tries++;
     }
-    console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB', maxSize+'px');
+    console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
     setStatus('فشرده: '+Math.round(compressed.size/1024)+'KB');
 
     const base64 = await new Promise(function(resolve){
@@ -1555,11 +1544,16 @@ async function uploadToArvan(file, itemId, statusEl){
       r.readAsDataURL(compressed);
     });
 
-    const fileName = 'items/'+itemId+'.jpg';
+    const fileName = 'items_'+itemId+'.jpg';
+    const CHUNK = 1200;
+    const chunks = [];
+    for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
+    const sid = 'sid'+Date.now();
+    console.log('[Upload] chunks:', chunks.length);
 
-    // اگه کوچیکه - یه درخواست
-    if(base64.length < 3000){
-      setStatus('آپلود...');
+    // اگه کوچیکه یه درخواست
+    if(chunks.length === 1){
+      setStatus('آپلود به Drive...');
       const params = 'action=imgUpload&itemId='+encodeURIComponent(itemId)+'&fileName='+encodeURIComponent(fileName)+'&imageData='+encodeURIComponent(base64);
       const result = await callGET(params, 30000);
       if(result && result.status==='ok'){
@@ -1567,28 +1561,22 @@ async function uploadToArvan(file, itemId, statusEl){
         saveItems();
         return {url:result.url};
       }
-      return {error:result?result.message:'خطا'};
+      return {error:result?result.message:'خطا در آپلود'};
     }
 
     // chunk برای عکس بزرگتر
-    const CHUNK = 1200;
-    const chunks = [];
-    for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
-    const sid = 'sid'+Date.now();
-    console.log('[Upload] chunks:', chunks.length);
     setStatus('ارسال '+chunks.length+' بخش...');
-
     for(var c=0; c<chunks.length; c++){
       const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
       var res = await callGET(params, 20000);
       if(!res || res.status!=='ok'){
-        res = await callGET(params, 20000); // retry
-        if(!res || res.status!=='ok') return {error:'خطا در بخش '+(c+1)};
+        res = await callGET(params, 20000);
+        if(!res || res.status!=='ok') return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
       }
       setStatus('ارسال... '+Math.round((c+1)/chunks.length*80)+'%');
     }
 
-    setStatus('آپلود به فضای ابری...');
+    setStatus('ذخیره در Drive...');
     const finParams = 'action=imgFinish&sid='+encodeURIComponent(sid)+'&fileName='+encodeURIComponent(fileName)+'&itemId='+encodeURIComponent(itemId)+'&total='+chunks.length;
     const result = await callGET(finParams, 60000);
     console.log('[Upload] نتیجه:', JSON.stringify(result));
@@ -1598,7 +1586,7 @@ async function uploadToArvan(file, itemId, statusEl){
       saveItems();
       return {url:result.url};
     }
-    return {error:result?result.message:'خطا در آپلود نهایی'};
+    return {error:result?result.message:'خطا در ذخیره'};
 
   }catch(err){
     return {error:err.message};
@@ -1710,6 +1698,29 @@ function showDebug(){
   el.style.display = el.style.display==='none'?'block':'block';
 }
 
+
+function convertDriveUrl(url){
+  if(!url) return '';
+  // تبدیل لینک Google Drive به لینک مستقیم
+  var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(m) return 'https://drive.google.com/uc?export=view&id='+m[1];
+  m = url.match(/id=([a-zA-Z0-9_-]+)/);
+  if(m) return 'https://drive.google.com/uc?export=view&id='+m[1];
+  return url;
+}
+
+function previewDriveImage(url, previewDivId){
+  var wrap = document.getElementById(previewDivId);
+  if(!wrap) return;
+  if(!url){ wrap.style.display='none'; return; }
+  var direct = convertDriveUrl(url);
+  var img = wrap.querySelector('img');
+  if(img){
+    img.src = direct;
+    img.onload = function(){ wrap.style.display='block'; };
+    img.onerror = function(){ wrap.style.display='none'; };
+  }
+}
 </script>
 </body>
 </html>
