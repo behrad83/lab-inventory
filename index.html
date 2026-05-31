@@ -1514,22 +1514,36 @@ async function uploadToArvan(file, itemId, statusEl){
     return new Promise(function(resolve){
       var cb = 'cb'+Date.now()+Math.random().toString(36).slice(2,5);
       var url = loadSheetUrl()+'?'+params+'&callback='+cb;
-      window[cb]=function(res){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();resolve(res);};
+      window[cb]=function(res){
+        delete window[cb];
+        var s=document.getElementById(cb);if(s)s.remove();
+        resolve(res);
+      };
       var script=document.createElement('script');
-      script.id=cb; script.src=url;
-      script.onerror=function(){delete window[cb];this.remove();resolve(null);};
-      setTimeout(function(){if(window[cb]){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();resolve(null);}},timeout||20000);
+      script.id=cb;
+      script.src=url;
+      script.onerror=function(){
+        delete window[cb];this.remove();resolve(null);
+      };
+      setTimeout(function(){
+        if(window[cb]){
+          delete window[cb];
+          var s=document.getElementById(cb);if(s)s.remove();
+          resolve(null);
+        }
+      }, timeout||20000);
       document.head.appendChild(script);
     });
   }
 
+  function delay(ms){ return new Promise(function(r){setTimeout(r,ms);}); }
+
   setStatus('فشرده‌سازی...');
   try{
-    // هدف زیر 30KB
     var maxSize = 800, quality = 0.85;
     var compressed = await compressImage(file, maxSize, quality);
     var tries = 0;
-    while(compressed.size > 30000 && tries < 10){
+    while(compressed.size > 25000 && tries < 10){
       quality = Math.max(0.4, quality - 0.07);
       if(tries > 5) maxSize = Math.max(300, maxSize - 100);
       compressed = await compressImage(file, maxSize, quality);
@@ -1545,17 +1559,17 @@ async function uploadToArvan(file, itemId, statusEl){
     });
 
     const fileName = 'items_'+itemId+'.jpg';
-    const CHUNK = 1200;
+    const CHUNK = 1500;
     const chunks = [];
     for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
     const sid = 'sid'+Date.now();
     console.log('[Upload] chunks:', chunks.length);
 
-    // اگه کوچیکه یه درخواست
+    // اگه یه chunk - مستقیم
     if(chunks.length === 1){
       setStatus('آپلود به Drive...');
       const params = 'action=imgUpload&itemId='+encodeURIComponent(itemId)+'&fileName='+encodeURIComponent(fileName)+'&imageData='+encodeURIComponent(base64);
-      const result = await callGET(params, 30000);
+      const result = await callGET(params, 45000);
       if(result && result.status==='ok'){
         items=items.map(function(i){return i.id===itemId?Object.assign({},i,{image:result.url}):i;});
         saveItems();
@@ -1564,19 +1578,25 @@ async function uploadToArvan(file, itemId, statusEl){
       return {error:result?result.message:'خطا در آپلود'};
     }
 
-    // chunk برای عکس بزرگتر
+    // chunk ها یکی یکی با delay
     setStatus('ارسال '+chunks.length+' بخش...');
     for(var c=0; c<chunks.length; c++){
+      await delay(300); // صبر بین chunk ها
       const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
-      var res = await callGET(params, 20000);
+      var res = await callGET(params, 25000);
       if(!res || res.status!=='ok'){
-        res = await callGET(params, 20000);
-        if(!res || res.status!=='ok') return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
+        await delay(1000);
+        res = await callGET(params, 25000); // retry
+        if(!res || res.status!=='ok'){
+          return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
+        }
       }
       setStatus('ارسال... '+Math.round((c+1)/chunks.length*80)+'%');
+      console.log('[Upload] chunk '+(c+1)+'/'+chunks.length+' OK');
     }
 
     setStatus('ذخیره در Drive...');
+    await delay(500);
     const finParams = 'action=imgFinish&sid='+encodeURIComponent(sid)+'&fileName='+encodeURIComponent(fileName)+'&itemId='+encodeURIComponent(itemId)+'&total='+chunks.length;
     const result = await callGET(finParams, 60000);
     console.log('[Upload] نتیجه:', JSON.stringify(result));
