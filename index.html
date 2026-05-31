@@ -1507,87 +1507,93 @@ var ARVAN_BUCKET = 'lab-inventory';
 async function uploadToArvan(file, itemId){
   console.log('[Upload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
   try{
-    // فشرده‌سازی
-    const compressed = await compressImage(file, 600, 0.7);
-    console.log('[Upload] فشرده‌سازی OK:', Math.round(compressed.size/1024)+'KB');
+    // فشرده‌سازی شدید برای ذخیره در Sheet
+    const compressed = await compressImage(file, 150, 0.4);
+    console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
-    // تبدیل به base64
     const base64 = await new Promise(function(resolve, reject){
       const reader = new FileReader();
-      reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+      reader.onload = function(e){ resolve(e.target.result); }; // data:image/jpeg;base64,...
       reader.onerror = reject;
       reader.readAsDataURL(compressed);
     });
-    console.log('[Upload] base64 آماده، طول:', base64.length);
 
-    // ارسال به Apps Script با POST
-    const fileName = 'items/' + itemId + '.jpg';
-    console.log('[Upload] ارسال به Apps Script با POST...');
-    
-    let response;
-    try{
-      response = await fetch(loadSheetUrl(), {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          action: 'uploadImage',
-          itemId: itemId,
-          fileName: fileName,
-          mimeType: 'image/jpeg',
-          imageData: base64
-        })
+    console.log('[Upload] base64 طول:', base64.length);
+
+    if(base64.length > 40000){
+      // خیلی بزرگه - فشرده‌تر کن
+      const compressed2 = await compressImage(file, 100, 0.3);
+      const base64_2 = await new Promise(function(resolve){
+        const r = new FileReader();
+        r.onload = function(e){ resolve(e.target.result); };
+        r.readAsDataURL(compressed2);
       });
-    }catch(fetchErr){
-      console.error('[Upload] خطای شبکه در POST:', fetchErr.message);
-      return {error: '[Upload] خطا در اتصال: ' + fetchErr.message};
+      console.log('[Upload] فشرده‌تر:', base64_2.length, 'کاراکتر');
+      
+      if(base64_2.length > 40000){
+        return {error: '[Upload] عکس خیلی بزرگه — عکس کوچکتری انتخاب کن'};
+      }
+      return await saveImageToSheet(itemId, base64_2);
     }
     
-    console.log('[Upload] پاسخ HTTP:', response.status);
-    
-    let result;
-    try{ result = await response.json(); }
-    catch(e){ return {error: '[Upload] پاسخ نامعتبر از سرور'}; }
-    
-    console.log('[Upload] نتیجه:', JSON.stringify(result));
-    if(result && result.status === 'ok') return {url: result.url};
-    return {error: '[Upload] ' + (result.message || result.body || JSON.stringify(result))};
-
+    return await saveImageToSheet(itemId, base64);
   }catch(err){
-    console.error('[Upload] خطای کلی:', err);
-    return {error: 'خطای کلی: ' + err.message};
+    console.error('[Upload] خطا:', err);
+    return {error: 'خطا: ' + err.message};
   }
 }
 
-async function getArvanSignature(fileName, contentType){
-  // HMAC-SHA1 signature for S3
-  const date = new Date().toUTCString();
-  const stringToSign = 'PUT\n\n' + contentType + '\n' + date + '\nx-amz-acl:public-read\n/' + ARVAN_BUCKET + '/' + fileName;
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(ARVAN_SECRET), {name:'HMAC',hash:'SHA-1'}, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(stringToSign));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)));
-}
-
-function compressImage(file, maxSize, quality){
+function saveImageToSheet(itemId, base64Data){
   return new Promise(function(resolve){
-    const reader = new FileReader();
-    reader.onload = function(e){
-      const img = new Image();
-      img.onload = function(){
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        if(w > maxSize || h > maxSize){
-          if(w > h){ h = Math.round(h * maxSize / w); w = maxSize; }
-          else { w = Math.round(w * maxSize / h); h = maxSize; }
-        }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        canvas.toBlob(function(blob){ resolve(blob); }, 'image/jpeg', quality);
-      };
-      img.src = e.target.result;
+    const cbName = 'imgSaveCb_' + Date.now();
+    // عکس رو به صورت data URL در Sheet ذخیره می‌کنیم
+    const params = new URLSearchParams({
+      action: 'updateImage',
+      callback: cbName,
+      id: itemId,
+      image: base64Data
+    });
+
+    window[cbName] = function(res){
+      delete window[cbName];
+      const s = document.getElementById(cbName); if(s) s.remove();
+      console.log('[Upload] ذخیره در Sheet:', JSON.stringify(res));
+      if(res && res.status === 'ok'){
+        // آپدیت لوکال
+        items = items.map(function(i){
+          return i.id === itemId ? Object.assign({}, i, {image: base64Data}) : i;
+        });
+        saveItems();
+        resolve({url: base64Data});
+      } else {
+        resolve({error: 'خطا در ذخیره: ' + JSON.stringify(res)});
+      }
     };
-    reader.readAsDataURL(file);
+
+    const script = document.createElement('script');
+    script.id = cbName;
+    // اگه URL خیلی بلند شد از chunk استفاده می‌کنیم
+    const url = loadSheetUrl() + '?' + params.toString();
+    if(url.length > 8000){
+      resolve({error: '[Upload] عکس هنوز هم خیلی بزرگه — عکس کوچکتری انتخاب کن (زیر ۵۰KB)'});
+      return;
+    }
+    script.src = url;
+    script.onerror = function(){
+      delete window[cbName]; this.remove();
+      resolve({error: '[Upload] خطا در اتصال به Sheet'});
+    };
+    setTimeout(function(){
+      if(window[cbName]){
+        delete window[cbName];
+        const s = document.getElementById(cbName); if(s) s.remove();
+        resolve({error: '[Upload] زمان تمام شد'});
+      }
+    }, 20000);
+    document.head.appendChild(script);
   });
 }
+
 
 async function previewAndUpload(input, previewDivId, statusId, itemId){
   const file = input.files[0];
