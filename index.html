@@ -1521,44 +1521,23 @@ async function uploadToArvan(file, itemId, statusEl){
     console.log('[Upload]', msg);
   }
 
-  function callGET(params, timeout){
-    return new Promise(function(resolve){
-      timeout = timeout || 20000;
-      const cb = 'cb'+Date.now()+Math.random().toString(36).slice(2,5);
-      const url = loadSheetUrl()+'?'+params+'&callback='+cb;
-      window[cb] = function(res){
-        delete window[cb];
-        var s=document.getElementById(cb);if(s)s.remove();
-        resolve(res);
-      };
-      var script = document.createElement('script');
-      script.id = cb;
-      script.src = url;
-      script.onerror = function(){
-        delete window[cb]; this.remove();
-        resolve(null);
-      };
-      setTimeout(function(){
-        if(window[cb]){
-          delete window[cb];
-          var s=document.getElementById(cb);if(s)s.remove();
-          resolve(null);
-        }
-      }, timeout);
-      document.head.appendChild(script);
-    });
-  }
-
   setStatus('فشرده‌سازی...');
   try{
-    var compressed = await compressImage(file, 400, 0.65);
+    // فشرده‌سازی تا زیر 3KB تا توی یه URL جا بشه
+    var maxSize = 120, quality = 0.4;
+    var compressed = await compressImage(file, maxSize, quality);
     var tries = 0;
-    while(compressed.size > 25000 && tries < 6){
-      compressed = await compressImage(file, Math.max(150, 400-tries*50), Math.max(0.25, 0.65-tries*0.1));
+    while(compressed.size > 3000 && tries < 10){
+      maxSize = Math.max(60, maxSize - 10);
+      quality = Math.max(0.15, quality - 0.03);
+      compressed = await compressImage(file, maxSize, quality);
       tries++;
-      console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
     }
-    setStatus('فشرده: '+Math.round(compressed.size/1024)+'KB');
+    console.log('[Upload] فشرده نهایی:', Math.round(compressed.size/1024*100)/100+'KB');
+    
+    if(compressed.size > 4000){
+      return {error:'عکس خیلی بزرگه — عکس کوچکتری بگیر'};
+    }
 
     const base64 = await new Promise(function(resolve){
       const r = new FileReader();
@@ -1567,43 +1546,36 @@ async function uploadToArvan(file, itemId, statusEl){
     });
 
     const fileName = 'items/'+itemId+'.jpg';
-    const CHUNK = 1200;
-    const chunks = [];
-    for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
-    const sid = 'sid'+Date.now();
-    console.log('[Upload] chunks:', chunks.length, 'sid:', sid);
-    setStatus('ارسال '+chunks.length+' بخش...');
+    setStatus('آپلود...');
 
-    for(var c=0; c<chunks.length; c++){
-      const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
-      var res = await callGET(params, 20000);
-      if(!res || res.status !== 'ok'){
-        // retry once
-        setStatus('تلاش مجدد chunk '+(c+1)+'...');
-        res = await callGET(params, 20000);
-        if(!res || res.status !== 'ok'){
-          return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
-        }
-      }
-      setStatus('ارسال... '+Math.round((c+1)/chunks.length*80)+'%');
-    }
+    // یه درخواست واحد
+    const params = 'action=imgUpload'
+      +'&itemId='+encodeURIComponent(itemId)
+      +'&fileName='+encodeURIComponent(fileName)
+      +'&imageData='+encodeURIComponent(base64);
 
-    setStatus('آپلود نهایی به فضای ابری...');
-    const finParams = 'action=imgFinish&sid='+encodeURIComponent(sid)+'&fileName='+encodeURIComponent(fileName)+'&itemId='+encodeURIComponent(itemId)+'&total='+chunks.length;
-    
-    // imgFinish با timeout بیشتر (60 ثانیه)
-    var result = await callGET(finParams, 60000);
-    console.log('[Upload] نتیجه نهایی:', JSON.stringify(result));
+    console.log('[Upload] URL طول:', (loadSheetUrl()+'?'+params).length);
 
-    if(result && result.status==='ok'){
+    const result = await new Promise(function(resolve){
+      const cb = 'up'+Date.now();
+      const url = loadSheetUrl()+'?'+params+'&callback='+cb;
+      window[cb]=function(res){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();resolve(res);};
+      var script=document.createElement('script');
+      script.id=cb; script.src=url;
+      script.onerror=function(){delete window[cb];this.remove();resolve({status:'error',message:'خطای script'});};
+      setTimeout(function(){if(window[cb]){delete window[cb];resolve({status:'error',message:'timeout'});}},30000);
+      document.head.appendChild(script);
+    });
+
+    console.log('[Upload] نتیجه:', JSON.stringify(result));
+    if(result&&result.status==='ok'){
       items=items.map(function(i){return i.id===itemId?Object.assign({},i,{image:result.url}):i;});
       saveItems();
       return {url:result.url};
     }
-    return {error:'[Finish] '+(result&&result.message?result.message:JSON.stringify(result))};
+    return {error:result&&result.message?result.message:JSON.stringify(result)};
 
   }catch(err){
-    console.error('[Upload] خطا:', err);
     return {error:err.message};
   }
 }
