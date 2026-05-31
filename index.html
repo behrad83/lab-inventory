@@ -1682,17 +1682,7 @@ function previewEditImage(input, itemId){
 }
 
 
-function convertDriveUrl(url){
-  if(!url) return '';
-  // تبدیل لینک Google Drive به لینک مستقیم
-  var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if(match) return 'https://drive.google.com/uc?export=view&id='+match[1];
-  // اگه لینک drive sharing بود
-  match = url.match(/id=([a-zA-Z0-9_-]+)/);
-  if(match) return 'https://drive.google.com/uc?export=view&id='+match[1];
-  // اگه لینک مستقیم بود همون رو برگردون
-  return url;
-}
+
 
 function previewImageUrl(url){
   const wrap=document.getElementById('imagePreviewWrap');
@@ -1962,6 +1952,80 @@ function toggleUnit(){
   if(unitRow) unitRow.style.display = isResin ? 'flex' : 'none';
   if(badge) badge.textContent = isResin ? 'گرم' : 'عدد';
   if(qtyLabel) qtyLabel.textContent = isResin ? 'حجم/وزن موجودی *' : 'تعداد موجودی *';
+}
+
+function addItem(){
+  const name=document.getElementById('ni-name').value.trim();
+  const cat=document.getElementById('ni-cat').value;
+  const qty=parseInt(document.getElementById('ni-qty').value)||0;
+  if(!name){alert('نام کالا الزامی است');return;}
+
+  const unitEl=document.getElementById('ni-unit');
+  const unit=cat==='رزین'?(unitEl?unitEl.value:'گرم'):'عدد';
+  const code=genCode(cat);
+  const id='item_'+Date.now();
+  const item={
+    id,code,name,
+    desc:document.getElementById('ni-desc').value.trim(),
+    cat,qty,unit,
+    shelf:(document.getElementById('ni-shelf').value.trim().toUpperCase()||'-'),
+    row:(document.getElementById('ni-row').value.trim()||'-'),
+    minQty:parseInt(document.getElementById('ni-min').value)||0,
+    date:new Date().toLocaleDateString('fa-IR'),
+    image:''
+  };
+  items.push(item);
+  saveItems();
+  callSheet('add',item,function(){});
+
+  // لینک عکس از آپلود
+  const imgUrl = document.getElementById('ni-image-url').value.trim();
+  if(imgUrl){
+    item.image = imgUrl;
+    items=items.map(function(i){return i.id===id?Object.assign({},i,{image:imgUrl}):i;});
+    saveItems();
+    setTimeout(function(){
+      callSheet('updateImage',{id:id,image:imgUrl},function(){});
+    }, 1000);
+  }
+
+  document.getElementById('addResult').classList.remove('hidden');
+  document.getElementById('addResultInfo').innerHTML=
+    '<div style="display:flex;flex-wrap:wrap;gap:10px">'
+    + [['کد کالا',code],['دسته',cat],['موجودی',qty+' '+unit],['قفسه',item.shelf+' / ردیف '+item.row]].map(function(r){
+      return '<div class="chip"><span style="color:#5a6080">'+r[0]+':</span><span style="color:#e2e4f0"> '+r[1]+'</span></div>';
+    }).join('')
+    + '</div>'
+    + '<button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="gotoView(&quot;items&quot;,document.querySelector(&quot;.nav:nth-child(2)&quot;))">مشاهده کالاها ↗</button>';
+  clearAddForm(true);
+}
+
+function clearAddForm(keepResult){
+  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  const niPrev = document.getElementById('ni-img-preview');
+  if(niPrev) niPrev.style.display='none';
+  if(!keepResult){
+    const r=document.getElementById('addResult');
+    if(r)r.classList.add('hidden');
+  }
+}
+
+
+function deleteItem(id){
+  if(!confirm('این کالا حذف شود؟')) return;
+  items = items.filter(function(i){ return i.id !== id; });
+  saveItems();
+  callSheet('delete', {id:id}, function(){});
+  closeDetail();
+  renderItems();
+  renderDashboard();
+}
+
+function renderUserList(){
+  // placeholder for settings page user list
+  renderActiveUsers();
 }
 </script>
 </body>
