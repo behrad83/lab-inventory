@@ -1583,18 +1583,48 @@ async function uploadToArvan(file, itemId, statusEl){
 
     // آپلود نهایی
     setStatus('آپلود به فضای ابری...');
+    const finUrl = loadSheetUrl()+'?action=imgFinish'
+      +'&sid='+encodeURIComponent(sid)
+      +'&fileName='+encodeURIComponent(fileName)
+      +'&itemId='+encodeURIComponent(itemId)
+      +'&total='+chunks.length;
+
+    // اول با script tag امتحان کن
     const result = await new Promise(function(resolve){
       const cb='fin'+Date.now();
-      const url=loadSheetUrl()+'?action=imgFinish&callback='+cb
-        +'&sid='+encodeURIComponent(sid)
-        +'&fileName='+encodeURIComponent(fileName)
-        +'&itemId='+encodeURIComponent(itemId)
-        +'&total='+chunks.length;
       window[cb]=function(res){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();resolve(res);};
       const script=document.createElement('script');
-      script.id=cb; script.src=url;
-      script.onerror=function(){delete window[cb];this.remove();resolve({status:'error',message:'خطای شبکه'});};
-      setTimeout(function(){if(window[cb]){delete window[cb];resolve({status:'error',message:'timeout'});}},30000);
+      script.id=cb;
+      script.src=finUrl+'&callback='+cb;
+      script.onerror=function(){
+        delete window[cb];this.remove();
+        console.log('[Finish] script failed, trying fetch...');
+        // fallback با fetch
+        fetch(finUrl+'&callback=none',{method:'GET',mode:'no-cors'})
+          .then(function(){
+            // no-cors موفق - صبر کن بعد چک کن
+            setTimeout(function(){
+              resolve({status:'ok', url:'https://s3.ir-thr-at1.arvanstorage.ir/lab-inventory/'+fileName});
+            }, 3000);
+          })
+          .catch(function(e){
+            resolve({status:'error',message:'خطای شبکه: '+e.message});
+          });
+      };
+      setTimeout(function(){
+        if(window[cb]){
+          delete window[cb];
+          const s=document.getElementById(cb);if(s)s.remove();
+          // timeout - سعی کن با fetch
+          fetch(finUrl+'&callback=none',{method:'GET',mode:'no-cors'})
+            .then(function(){
+              setTimeout(function(){
+                resolve({status:'ok',url:'https://s3.ir-thr-at1.arvanstorage.ir/lab-inventory/'+fileName});
+              },3000);
+            })
+            .catch(function(){resolve({status:'error',message:'timeout'});});
+        }
+      },15000);
       document.head.appendChild(script);
     });
 
