@@ -259,6 +259,7 @@ tr:hover td{background:#0e1018}
             <input type="file" id="ni-image-gallery" accept="image/*" style="display:none" onchange="previewAndUpload(this,'ni-img-preview','ni-img-status','')">
             <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image-file').click()">📷 دوربین</button>
             <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image-gallery').click()">🖼️ گالری</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="showDebug()" style="font-size:10px;padding:4px 6px">🐛</button>
             <span id="ni-img-status" style="font-size:12px;color:#5a6080"></span>
           </div>
           <div id="ni-img-preview" style="margin-top:8px;display:none">
@@ -1514,7 +1515,7 @@ var ARVAN_SECRET = '0baf5815671d1a9a3ca5baa34018e490e7c20438bcb753669c66fa3c287a
 var ARVAN_ENDPOINT = 'https://s3.ir-thr-at1.arvanstorage.ir';
 var ARVAN_BUCKET = 'lab-inventory';
 
-async function uploadToArvan(file, itemId){
+async function uploadToArvan(file, itemId, statusEl){
   console.log('[Upload] شروع:', file.name, Math.round(file.size/1024)+'KB');
   try{
     // فشرده‌سازی با کیفیت مناسب
@@ -1537,17 +1538,34 @@ async function uploadToArvan(file, itemId){
     // ارسال chunk ها
     for(var c=0; c<chunks.length; c++){
       const ok = await new Promise(function(resolve){
-        const cb='ck_'+Date.now()+'_'+c;
-        const params=new URLSearchParams({action:'imgChunk',callback:cb,sid:sid,i:c,chunk:chunks[c]});
-        window[cb]=function(res){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();resolve(res&&res.status==='ok');};
+        const cb='ck_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+        const url=loadSheetUrl()+'?action=imgChunk&callback='+cb+'&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
+        window[cb]=function(res){
+          delete window[cb];
+          const s=document.getElementById(cb);if(s)s.remove();
+          resolve(res&&res.status==='ok');
+        };
         const script=document.createElement('script');
-        script.id=cb;script.src=loadSheetUrl()+'?'+params.toString();
-        script.onerror=function(){delete window[cb];this.remove();resolve(false);};
-        setTimeout(function(){if(window[cb]){delete window[cb];resolve(false);}},15000);
+        script.id=cb;
+        script.src=url;
+        script.onerror=function(){
+          console.error('[Chunk] onerror on chunk '+c);
+          delete window[cb];this.remove();resolve(false);
+        };
+        setTimeout(function(){
+          if(window[cb]){
+            console.error('[Chunk] timeout on chunk '+c);
+            delete window[cb];
+            const s=document.getElementById(cb);if(s)s.remove();
+            resolve(false);
+          }
+        },20000);
         document.head.appendChild(script);
       });
-      if(!ok){return {error:'خطا در ارسال chunk '+c};}
-      console.log('[Upload] chunk '+(c+1)+'/'+chunks.length);
+      if(!ok){return {error:'خطا در ارسال chunk '+c+' از '+chunks.length};}
+      console.log('[Upload] chunk '+(c+1)+'/'+chunks.length+' OK');
+      const pct = Math.round((c+1)/chunks.length*80);
+      if(statusEl) statusEl.textContent = 'آپلود... '+pct+'%';
     }
 
     // آپلود نهایی
@@ -1598,7 +1616,7 @@ async function previewAndUpload(input, previewDivId, statusId, itemId){
   // آپلود
   if(statusEl) statusEl.textContent = 'در حال آپلود...';
   
-  const result = await uploadToArvan(file, itemId || 'temp_' + Date.now());
+  const result = await uploadToArvan(file, itemId || 'temp_' + Date.now(), statusEl);
   
   if(result && result.url){
     if(statusEl){ statusEl.style.color='#4ade80'; statusEl.textContent='✅ آپلود موفق'; }
@@ -1651,6 +1669,36 @@ function openFullImage(src){
   overlay.appendChild(img);
   document.body.appendChild(overlay);
 }
+
+// Debug logger برای گوشی
+var _debugLogs = [];
+var _origLog = console.log;
+var _origErr = console.error;
+console.log = function(){
+  _origLog.apply(console, arguments);
+  _debugLogs.push('[LOG] ' + Array.from(arguments).join(' '));
+  updateDebugDiv();
+};
+console.error = function(){
+  _origErr.apply(console, arguments);
+  _debugLogs.push('[ERR] ' + Array.from(arguments).join(' '));
+  updateDebugDiv();
+};
+function updateDebugDiv(){
+  var el = document.getElementById('debugDiv');
+  if(el) el.innerHTML = _debugLogs.slice(-10).join('<br>');
+}
+function showDebug(){
+  var el = document.getElementById('debugDiv');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'debugDiv';
+    el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;font-size:11px;padding:8px;max-height:200px;overflow-y:auto;z-index:99999;direction:ltr;font-family:monospace';
+    document.body.appendChild(el);
+  }
+  el.style.display = el.style.display==='none'?'block':'block';
+}
+
 </script>
 </body>
 </html>
