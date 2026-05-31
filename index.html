@@ -915,12 +915,18 @@ function addItem(){
   saveItems();
   callSheet('add',item,function(){});
 
-  // لینک عکس از آپلود
+  // لینک عکس از آپلود - بعد از ذخیره کالا آپدیت Sheet
   const imgUrl = document.getElementById('ni-image-url').value.trim();
   if(imgUrl){
+    item.image = imgUrl;
     items=items.map(function(i){return i.id===id?Object.assign({},i,{image:imgUrl}):i;});
     saveItems();
-    callSheet('updateImage',{id:id,image:imgUrl},function(){});
+    // آپدیت Sheet با لینک عکس
+    setTimeout(function(){
+      callSheet('updateImage',{id:id,image:imgUrl},function(){
+        console.log('[AddItem] عکس در Sheet آپدیت شد');
+      });
+    }, 1000);
   }
 
   document.getElementById('addResult').classList.remove('hidden');
@@ -1640,14 +1646,18 @@ async function previewAndUpload(input, previewDivId, statusId, itemId){
   if(result && result.url){
     if(statusEl){ statusEl.style.color='#4ade80'; statusEl.textContent='✅ آپلود موفق'; }
     if(itemId){
+      // edit mode - آپدیت مستقیم
       const hiddenInput = document.getElementById('edit-image-url-' + itemId);
       if(hiddenInput) hiddenInput.value = result.url;
       items = items.map(function(i){ return i.id===itemId ? Object.assign({},i,{image:result.url}) : i; });
       saveItems();
       callSheet('updateImage', {id:itemId, image:result.url}, function(){});
     } else {
+      // add mode - فقط URL رو ذخیره کن
       const hiddenInput = document.getElementById('ni-image-url');
       if(hiddenInput) hiddenInput.value = result.url;
+      // نشون بده که آپلود شده ولی هنوز کالا ذخیره نشده
+      console.log('[Upload] URL ready for new item:', result.url);
     }
   } else {
     const errMsg = (result && result.error) ? result.error : 'خطای ناشناخته';
