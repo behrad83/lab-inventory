@@ -1521,20 +1521,33 @@ async function uploadToArvan(file, itemId, statusEl){
     console.log('[Upload]', msg);
   }
 
+  function callGET(params, timeout){
+    return new Promise(function(resolve){
+      var cb = 'cb'+Date.now()+Math.random().toString(36).slice(2,5);
+      var url = loadSheetUrl()+'?'+params+'&callback='+cb;
+      window[cb]=function(res){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();resolve(res);};
+      var script=document.createElement('script');
+      script.id=cb; script.src=url;
+      script.onerror=function(){delete window[cb];this.remove();resolve(null);};
+      setTimeout(function(){if(window[cb]){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();resolve(null);}},timeout||20000);
+      document.head.appendChild(script);
+    });
+  }
+
   setStatus('فشرده‌سازی...');
   try{
-    // فشرده‌سازی تا زیر 3KB تا توی یه URL جا بشه
-    // هدف زیر 14KB
-    var maxSize = 600, quality = 0.85;
+    // کیفیت خوب - هدف 30KB
+    var maxSize = 800, quality = 0.85;
     var compressed = await compressImage(file, maxSize, quality);
     var tries = 0;
-    while(compressed.size > 14000 && tries < 15){
-      if(tries < 8) quality = Math.max(0.4, quality - 0.06);
-      else maxSize = Math.max(150, maxSize - 50);
+    while(compressed.size > 30000 && tries < 10){
+      quality = Math.max(0.4, quality - 0.07);
+      if(tries > 5) maxSize = Math.max(300, maxSize - 100);
       compressed = await compressImage(file, maxSize, quality);
       tries++;
     }
-    console.log('[Upload] فشرده:', Math.round(compressed.size/1024*10)/10+'KB', maxSize+'px Q:'+quality.toFixed(2));
+    console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB', maxSize+'px');
+    setStatus('فشرده: '+Math.round(compressed.size/1024)+'KB');
 
     const base64 = await new Promise(function(resolve){
       const r = new FileReader();
@@ -1543,38 +1556,49 @@ async function uploadToArvan(file, itemId, statusEl){
     });
 
     const fileName = 'items/'+itemId+'.jpg';
-    setStatus('آپلود...');
 
-    // یه درخواست واحد
-    const params = 'action=imgUpload'
-      +'&itemId='+encodeURIComponent(itemId)
-      +'&fileName='+encodeURIComponent(fileName)
-      +'&imageData='+encodeURIComponent(base64);
-
-    const totalUrl = loadSheetUrl()+'?'+params+'&callback=xx';
-    console.log('[Upload] URL طول:', totalUrl.length);
-    if(totalUrl.length > 100000){
-      return {error:'عکس خیلی بزرگه'};
+    // اگه کوچیکه - یه درخواست
+    if(base64.length < 3000){
+      setStatus('آپلود...');
+      const params = 'action=imgUpload&itemId='+encodeURIComponent(itemId)+'&fileName='+encodeURIComponent(fileName)+'&imageData='+encodeURIComponent(base64);
+      const result = await callGET(params, 30000);
+      if(result && result.status==='ok'){
+        items=items.map(function(i){return i.id===itemId?Object.assign({},i,{image:result.url}):i;});
+        saveItems();
+        return {url:result.url};
+      }
+      return {error:result?result.message:'خطا'};
     }
 
-    const result = await new Promise(function(resolve){
-      const cb = 'up'+Date.now();
-      const url = loadSheetUrl()+'?'+params+'&callback='+cb;
-      window[cb]=function(res){delete window[cb];var s=document.getElementById(cb);if(s)s.remove();resolve(res);};
-      var script=document.createElement('script');
-      script.id=cb; script.src=url;
-      script.onerror=function(){delete window[cb];this.remove();resolve({status:'error',message:'خطای script'});};
-      setTimeout(function(){if(window[cb]){delete window[cb];resolve({status:'error',message:'timeout'});}},30000);
-      document.head.appendChild(script);
-    });
+    // chunk برای عکس بزرگتر
+    const CHUNK = 1200;
+    const chunks = [];
+    for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
+    const sid = 'sid'+Date.now();
+    console.log('[Upload] chunks:', chunks.length);
+    setStatus('ارسال '+chunks.length+' بخش...');
 
+    for(var c=0; c<chunks.length; c++){
+      const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
+      var res = await callGET(params, 20000);
+      if(!res || res.status!=='ok'){
+        res = await callGET(params, 20000); // retry
+        if(!res || res.status!=='ok') return {error:'خطا در بخش '+(c+1)};
+      }
+      setStatus('ارسال... '+Math.round((c+1)/chunks.length*80)+'%');
+    }
+
+    setStatus('آپلود به فضای ابری...');
+    const finParams = 'action=imgFinish&sid='+encodeURIComponent(sid)+'&fileName='+encodeURIComponent(fileName)+'&itemId='+encodeURIComponent(itemId)+'&total='+chunks.length;
+    const result = await callGET(finParams, 60000);
     console.log('[Upload] نتیجه:', JSON.stringify(result));
-    if(result&&result.status==='ok'){
+
+    if(result && result.status==='ok'){
       items=items.map(function(i){return i.id===itemId?Object.assign({},i,{image:result.url}):i;});
       saveItems();
       return {url:result.url};
     }
-    return {error:result&&result.message?result.message:JSON.stringify(result)};
+    return {error:result?result.message:'خطا در آپلود نهایی'};
 
   }catch(err){
     return {error:err.message};
