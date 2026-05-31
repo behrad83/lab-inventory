@@ -1505,26 +1505,17 @@ var ARVAN_ENDPOINT = 'https://s3.ir-thr-at1.arvanstorage.ir';
 var ARVAN_BUCKET = 'lab-inventory';
 
 async function uploadToArvan(file, itemId){
+  console.log('[ArvanUpload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
   try{
-    // فشرده‌سازی عکس
     const compressed = await compressImage(file, 800, 0.75);
-    const ext = file.name.split('.').pop() || 'jpg';
+    console.log('[ArvanUpload] فشرده‌سازی OK - اندازه جدید:', Math.round(compressed.size/1024)+'KB');
+    
+    const ext = 'jpg';
     const fileName = 'items/' + itemId + '.' + ext;
     const contentType = 'image/jpeg';
     const uploadUrl = ARVAN_ENDPOINT + '/' + ARVAN_BUCKET + '/' + fileName;
-    
-    console.log('[ArvanUpload] شروع آپلود:', fileName);
-    console.log('[ArvanUpload] URL:', uploadUrl);
-    
-    let sig;
-    try{
-      sig = await getArvanSignature(fileName, contentType);
-      console.log('[ArvanUpload] Signature ساخته شد');
-    }catch(sigErr){
-      console.error('[ArvanUpload] خطا در ساخت Signature:', sigErr);
-      return {error: 'خطا در ساخت امضا: ' + sigErr.message};
-    }
-    
+    console.log('[ArvanUpload] URL مقصد:', uploadUrl);
+
     let response;
     try{
       response = await fetch(uploadUrl, {
@@ -1532,29 +1523,33 @@ async function uploadToArvan(file, itemId){
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Type': contentType,
-          'Authorization': 'AWS ' + ARVAN_ACCESS + ':' + sig
         },
         body: compressed
       });
+      console.log('[ArvanUpload] پاسخ HTTP:', response.status, response.statusText);
     }catch(fetchErr){
-      console.error('[ArvanUpload] خطا در اتصال:', fetchErr);
-      return {error: 'خطا در اتصال به سرور: ' + fetchErr.message + ' (احتمال CORS)'};
+      console.error('[ArvanUpload] خطای شبکه:', fetchErr.message);
+      return {error: '[CORS] خطا در اتصال به آروان‌کلاد: ' + fetchErr.message + ' — باید CORS رو در پنل ArvanCloud تنظیم کنی'};
     }
-    
-    console.log('[ArvanUpload] پاسخ سرور:', response.status, response.statusText);
-    
-    if(response.ok || response.status === 200){
-      const url = uploadUrl;
-      console.log('[ArvanUpload] آپلود موفق:', url);
-      return {url: url};
+
+    if(response.ok){
+      console.log('[ArvanUpload] موفق!', uploadUrl);
+      return {url: uploadUrl};
     }
-    
-    let responseText = '';
-    try{ responseText = await response.text(); }catch(e){}
-    console.error('[ArvanUpload] خطای سرور:', response.status, responseText);
-    return {error: 'خطای سرور ' + response.status + ': ' + responseText.slice(0,200)};
-    
-  } catch(err){
+
+    let body = '';
+    try{ body = await response.text(); }catch(e){}
+    console.error('[ArvanUpload] خطای سرور:', response.status, body.slice(0,300));
+
+    if(response.status === 403){
+      return {error: '[403 Forbidden] دسترسی رد شد — CORS یا Authentication مشکل دارد. جزئیات: ' + body.slice(0,150)};
+    }
+    if(response.status === 404){
+      return {error: '[404] صندوقچه پیدا نشد — نام bucket رو چک کن: ' + ARVAN_BUCKET};
+    }
+    return {error: '[HTTP ' + response.status + '] ' + body.slice(0,200)};
+
+  }catch(err){
     console.error('[ArvanUpload] خطای کلی:', err);
     return {error: 'خطای کلی: ' + err.message};
   }
