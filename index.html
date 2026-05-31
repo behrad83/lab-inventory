@@ -255,7 +255,7 @@ tr:hover td{background:#0e1018}
         <div class="form-group">
           <label>عکس کالا (اختیاری)</label>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <input type="file" id="ni-image-file" accept="image/*" style="display:none" onchange="previewAndUpload(this,'ni-img-preview','ni-img-status','')">
+            <input type="file" id="ni-image-file" accept="image/*" capture="environment" style="display:none" onchange="previewAndUpload(this,'ni-img-preview','ni-img-status','')">
             <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image-file').click()">📷 انتخاب عکس</button>
             <span id="ni-img-status" style="font-size:12px;color:#5a6080"></span>
           </div>
@@ -1087,7 +1087,7 @@ function openDetail(id){
         <label>تغییر عکس کالا</label>
         ${i.image?`<div style="margin-bottom:8px"><img src="${i.image}" style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e"></div>`:''}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="file" id="edit-img-file-${i.id}" accept="image/*" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
+          <input type="file" id="edit-img-file-${i.id}" accept="image/*" capture="environment" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
           <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-img-file-${i.id}').click()">📷 تغییر عکس</button>
           <span id="edit-img-status-${i.id}" style="font-size:12px;color:#5a6080"></span>
         </div>
@@ -1508,7 +1508,7 @@ async function uploadToArvan(file, itemId){
   console.log('[Upload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
   try{
     // فشرده‌سازی شدید برای ذخیره در Sheet
-    const compressed = await compressImage(file, 400, 0.8);
+    const compressed = await compressImage(file, 500, 0.7);
     console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
     const base64 = await new Promise(function(resolve, reject){
