@@ -1018,6 +1018,11 @@ function applyRoleUI(){
 // ═══════════════════════════════════════════════
 //  NAV
 // ═══════════════════════════════════════════════
+function renderUserList(){
+  // placeholder for settings page user list
+  renderActiveUsers();
+}
+
 function gotoView(v,el){
   document.querySelectorAll('[id^="view-"]').forEach(x=>x.classList.add('hidden'));
   document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));
@@ -2023,10 +2028,7 @@ function deleteItem(id){
   renderDashboard();
 }
 
-function renderUserList(){
-  // placeholder for settings page user list
-  renderActiveUsers();
-}
+
 </script>
 </body>
 </html>
