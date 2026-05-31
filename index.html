@@ -1512,7 +1512,7 @@ async function uploadToArvan(file, itemId){
   console.log('[Upload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
   try{
     // فشرده‌سازی شدید برای ذخیره در Sheet
-    const compressed = await compressImage(file, 300, 0.5);
+    const compressed = await compressImage(file, 200, 0.4);
     console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
     const base64 = await new Promise(function(resolve, reject){
@@ -1524,9 +1524,9 @@ async function uploadToArvan(file, itemId){
 
     console.log('[Upload] base64 طول:', base64.length);
 
-    if(base64.length > 30000){
+    if(base64.length > 15000){
       // خیلی بزرگه - فشرده‌تر کن
-      const compressed2 = await compressImage(file, 200, 0.4);
+      const compressed2 = await compressImage(file, 120, 0.3);
       const base64_2 = await new Promise(function(resolve){
         const r = new FileReader();
         r.onload = function(e){ resolve(e.target.result); };
@@ -1534,7 +1534,7 @@ async function uploadToArvan(file, itemId){
       });
       console.log('[Upload] فشرده‌تر:', base64_2.length, 'کاراکتر');
       
-      if(base64_2.length > 30000){
+      if(base64_2.length > 15000){
         return {error: '[Upload] عکس خیلی بزرگه — عکس کوچکتری انتخاب کن'};
       }
       return await saveImageToSheet(itemId, base64_2);
@@ -1578,7 +1578,7 @@ function saveImageToSheet(itemId, base64Data){
     script.id = cbName;
     // اگه URL خیلی بلند شد از chunk استفاده می‌کنیم
     const url = loadSheetUrl() + '?' + params.toString();
-    if(url.length > 16000){
+    if(url.length > 8000){
       resolve({error: '[Upload] عکس هنوز هم خیلی بزرگه — عکس کوچکتری انتخاب کن (زیر ۵۰KB)'});
       return;
     }
