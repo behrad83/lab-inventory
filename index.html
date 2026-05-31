@@ -253,14 +253,16 @@ tr:hover td{background:#0e1018}
           <input class="inp" type="number" id="ni-min" placeholder="5" min="0">
         </div>
         <div class="form-group">
-          <label>لینک عکس کالا (اختیاری)</label>
-          <input class="inp" id="ni-image-url" placeholder="لینک عکس از Google Drive یا هر جای دیگه..." oninput="previewImageUrl(this.value)">
-          <div style="font-size:11px;color:#5a6080;margin-top:4px">
-            💡 عکس رو توی Google Drive آپلود کن → راست‌کلیک → Get link → Anyone with link → لینک رو اینجا paste کن
+          <label>عکس کالا (اختیاری)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="file" id="ni-image-file" accept="image/*" style="display:none" onchange="previewAndUpload(this,'ni-img-preview','ni-img-status','')">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image-file').click()">📷 انتخاب عکس</button>
+            <span id="ni-img-status" style="font-size:12px;color:#5a6080"></span>
           </div>
-          <div id="imagePreviewWrap" style="margin-top:8px;display:none">
-            <img id="imagePreview" style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e">
+          <div id="ni-img-preview" style="margin-top:8px;display:none">
+            <img style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e">
           </div>
+          <input type="hidden" id="ni-image-url" value="">
         </div>
         <div style="display:flex;gap:10px;margin-top:6px">
           <button class="btn btn-success" style="flex:1" onclick="addItem()">✅ ذخیره و تولید QR</button>
@@ -906,14 +908,12 @@ function addItem(){
   saveItems();
   callSheet('add',item,function(){});
 
-  // ذخیره لینک عکس
+  // ذخیره لینک عکس آپلود شده
   const imgUrl=document.getElementById('ni-image-url').value.trim();
   if(imgUrl){
-    const directUrl=convertDriveUrl(imgUrl);
-    items=items.map(function(i){return i.id===id?Object.assign({},i,{image:directUrl}):i;});
+    items=items.map(function(i){return i.id===id?Object.assign({},i,{image:imgUrl}):i;});
     saveItems();
-    // آپدیت توی Sheet
-    callSheet('updateImage',{id:id,image:directUrl},function(){});
+    callSheet('updateImage',{id:id,image:imgUrl},function(){});
   }
 
   document.getElementById('addResult').classList.remove('hidden');
@@ -971,10 +971,15 @@ function uploadImageToSheet(itemId, file, callback){
 }
 
 function clearAddForm(keepResult=false){
-  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(id=>{
+  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
     const el=document.getElementById(id);if(el)el.value='';
   });
-  document.getElementById('imagePreviewWrap').style.display='none';
+  const niFile = document.getElementById('ni-image-file');
+  if(niFile) niFile.value='';
+  const niPrev = document.getElementById('ni-img-preview');
+  if(niPrev) niPrev.style.display='none';
+  const niStatus = document.getElementById('ni-img-status');
+  if(niStatus) niStatus.textContent='';
   document.getElementById('ni-cat').value='آزمایشگاه';
   toggleUnit();
   if(!keepResult)document.getElementById('addResult').classList.add('hidden');
@@ -1079,9 +1084,17 @@ function openDetail(id){
         </select>
       </div>
       <div class="form-group" style="margin-top:8px">
-        <label>لینک عکس کالا</label>
-        <input class="inp" id="edit-image-url-${i.id}" value="${i.image||''}" placeholder="لینک عکس از Google Drive...">
-        <div style="font-size:11px;color:#5a6080;margin-top:4px">لینک Drive → راست‌کلیک → Get link → Anyone with link</div>
+        <label>تغییر عکس کالا</label>
+        ${i.image?`<div style="margin-bottom:8px"><img src="${i.image}" style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e"></div>`:''}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="edit-img-file-${i.id}" accept="image/*" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-img-file-${i.id}').click()">📷 تغییر عکس</button>
+          <span id="edit-img-status-${i.id}" style="font-size:12px;color:#5a6080"></span>
+        </div>
+        <div id="edit-img-prev-${i.id}" style="margin-top:8px;display:none">
+          <img style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e">
+        </div>
+        <input type="hidden" id="edit-image-url-${i.id}" value="${i.image||''}">
       </div>
       <div style="display:flex;gap:10px;margin-top:6px">
         <button class="btn btn-primary" style="flex:1" onclick="saveEdit('${i.id}')">💾 ذخیره تغییرات</button>
@@ -1135,8 +1148,8 @@ function saveEdit(id){
   // ذخیره لینک عکس جدید
   const imgUrlInput=document.getElementById('edit-image-url-'+id);
   if(imgUrlInput){
-    const newImgUrl=convertDriveUrl(imgUrlInput.value.trim());
-    if(newImgUrl!==item.image){
+    const newImgUrl=imgUrlInput.value.trim();
+    if(newImgUrl&&newImgUrl!==item.image){
       items=items.map(function(i){return i.id===id?Object.assign({},i,{image:newImgUrl}):i;});
       saveItems();
       callSheet('updateImage',{id:id,image:newImgUrl},function(){});
@@ -1483,6 +1496,141 @@ function previewImageUrl(url){
   img.src=direct;
   img.onerror=function(){wrap.style.display='none';};
   img.onload=function(){wrap.style.display='block';};
+}
+
+// ─── ArvanCloud S3 Upload ───────────────────────
+var ARVAN_ACCESS = 'faab6d47-ccda-458f-9331-1883d451df06';
+var ARVAN_SECRET = '0baf5815671d1a9a3ca5baa34018e490e7c20438bcb753669c66fa3c287a123b';
+var ARVAN_ENDPOINT = 'https://s3.ir-thr-at1.arvanstorage.ir';
+var ARVAN_BUCKET = 'lab-inventory';
+
+async function uploadToArvan(file, itemId){
+  try{
+    // فشرده‌سازی عکس
+    const compressed = await compressImage(file, 800, 0.75);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = 'items/' + itemId + '.' + ext;
+    const contentType = 'image/jpeg';
+    const uploadUrl = ARVAN_ENDPOINT + '/' + ARVAN_BUCKET + '/' + fileName;
+    
+    console.log('[ArvanUpload] شروع آپلود:', fileName);
+    console.log('[ArvanUpload] URL:', uploadUrl);
+    
+    let sig;
+    try{
+      sig = await getArvanSignature(fileName, contentType);
+      console.log('[ArvanUpload] Signature ساخته شد');
+    }catch(sigErr){
+      console.error('[ArvanUpload] خطا در ساخت Signature:', sigErr);
+      return {error: 'خطا در ساخت امضا: ' + sigErr.message};
+    }
+    
+    let response;
+    try{
+      response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'x-amz-acl': 'public-read',
+          'Content-Type': contentType,
+          'Authorization': 'AWS ' + ARVAN_ACCESS + ':' + sig
+        },
+        body: compressed
+      });
+    }catch(fetchErr){
+      console.error('[ArvanUpload] خطا در اتصال:', fetchErr);
+      return {error: 'خطا در اتصال به سرور: ' + fetchErr.message + ' (احتمال CORS)'};
+    }
+    
+    console.log('[ArvanUpload] پاسخ سرور:', response.status, response.statusText);
+    
+    if(response.ok || response.status === 200){
+      const url = uploadUrl;
+      console.log('[ArvanUpload] آپلود موفق:', url);
+      return {url: url};
+    }
+    
+    let responseText = '';
+    try{ responseText = await response.text(); }catch(e){}
+    console.error('[ArvanUpload] خطای سرور:', response.status, responseText);
+    return {error: 'خطای سرور ' + response.status + ': ' + responseText.slice(0,200)};
+    
+  } catch(err){
+    console.error('[ArvanUpload] خطای کلی:', err);
+    return {error: 'خطای کلی: ' + err.message};
+  }
+}
+
+async function getArvanSignature(fileName, contentType){
+  // HMAC-SHA1 signature for S3
+  const date = new Date().toUTCString();
+  const stringToSign = 'PUT\n\n' + contentType + '\n' + date + '\nx-amz-acl:public-read\n/' + ARVAN_BUCKET + '/' + fileName;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(ARVAN_SECRET), {name:'HMAC',hash:'SHA-1'}, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(stringToSign));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+function compressImage(file, maxSize, quality){
+  return new Promise(function(resolve){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if(w > maxSize || h > maxSize){
+          if(w > h){ h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob){ resolve(blob); }, 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function previewAndUpload(input, previewDivId, statusId, itemId){
+  const file = input.files[0];
+  if(!file) return;
+  
+  const statusEl = document.getElementById(statusId);
+  const previewDiv = document.getElementById(previewDivId);
+  
+  // نمایش preview
+  const reader = new FileReader();
+  reader.onload = function(e){
+    if(previewDiv){
+      const img = previewDiv.querySelector('img');
+      if(img) img.src = e.target.result;
+      previewDiv.style.display = 'block';
+    }
+  };
+  reader.readAsDataURL(file);
+  
+  // آپلود
+  if(statusEl) statusEl.textContent = 'در حال آپلود...';
+  
+  const result = await uploadToArvan(file, itemId || 'temp_' + Date.now());
+  
+  if(result && result.url){
+    if(statusEl){ statusEl.style.color='#4ade80'; statusEl.textContent='✅ آپلود موفق'; }
+    if(itemId){
+      const hiddenInput = document.getElementById('edit-image-url-' + itemId);
+      if(hiddenInput) hiddenInput.value = result.url;
+      items = items.map(function(i){ return i.id===itemId ? Object.assign({},i,{image:result.url}) : i; });
+      saveItems();
+      callSheet('updateImage', {id:itemId, image:result.url}, function(){});
+    } else {
+      const hiddenInput = document.getElementById('ni-image-url');
+      if(hiddenInput) hiddenInput.value = result.url;
+    }
+  } else {
+    const errMsg = (result && result.error) ? result.error : 'خطای ناشناخته';
+    if(statusEl){ statusEl.style.color='#f87171'; statusEl.textContent='❌ ' + errMsg; }
+    console.error('[Upload] خطا:', errMsg);
+  }
 }
 </script>
 </body>
