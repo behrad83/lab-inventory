@@ -1515,66 +1515,90 @@ var ARVAN_ENDPOINT = 'https://s3.ir-thr-at1.arvanstorage.ir';
 var ARVAN_BUCKET = 'lab-inventory';
 
 async function uploadToArvan(file, itemId){
-  console.log('[Upload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
+  console.log('[Upload] شروع:', file.name, Math.round(file.size/1024)+'KB');
   try{
-    // فشرده‌سازی
     const compressed = await compressImage(file, 1200, 0.85);
     console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
-    // قدم ۱: گرفتن Presigned URL از Apps Script
-    console.log('[Upload] درخواست Presigned URL...');
-    const presignedResult = await new Promise(function(resolve){
-      const cb = 'psCb_'+Date.now();
-      const params = new URLSearchParams({action:'getPresignedUrl', callback:cb, itemId:itemId});
-      window[cb] = function(res){ delete window[cb]; const s=document.getElementById(cb);if(s)s.remove(); resolve(res); };
-      const script = document.createElement('script');
-      script.id = cb;
-      script.src = loadSheetUrl()+'?'+params.toString();
-      script.onerror = function(){ delete window[cb]; this.remove(); resolve({status:'error',message:'خطا در دریافت URL'}); };
-      setTimeout(function(){ if(window[cb]){ delete window[cb]; resolve({status:'error',message:'timeout'}); } },15000);
-      document.head.appendChild(script);
-    });
+    const fileName = 'items/' + itemId + '.jpg';
+    const uploadUrl = 'https://s3.ir-thr-at1.arvanstorage.ir/lab-inventory/' + fileName;
+    console.log('[Upload] آپلود به:', uploadUrl);
 
-    if(presignedResult.status !== 'ok'){
-      return {error:'[Presigned] '+presignedResult.message};
-    }
-    console.log('[Upload] Presigned URL دریافت شد');
-
-    // قدم ۲: آپلود مستقیم به ArvanCloud با Presigned URL
     let response;
     try{
-      response = await fetch(presignedResult.uploadUrl, {
+      response = await fetch(uploadUrl, {
         method: 'PUT',
-        headers: {'Content-Type': 'image/jpeg', 'x-amz-acl': 'public-read'},
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'x-amz-acl': 'public-read'
+        },
         body: compressed
       });
-      console.log('[Upload] پاسخ ArvanCloud:', response.status);
+      console.log('[Upload] پاسخ:', response.status, response.statusText);
     }catch(fetchErr){
       console.error('[Upload] خطای شبکه:', fetchErr.message);
-      return {error:'[Upload] خطا در اتصال به ArvanCloud: '+fetchErr.message};
+      return {error: '[CORS/Network] ' + fetchErr.message};
     }
 
-    if(response.ok || response.status===200){
-      const publicUrl = presignedResult.publicUrl;
-      console.log('[Upload] موفق!', publicUrl);
-      // ذخیره URL در Sheet
-      callSheet('updateImage', {id:itemId, image:publicUrl}, function(){
-        console.log('[Upload] URL در Sheet ذخیره شد');
-      });
-      // آپدیت لوکال
-      items = items.map(function(i){ return i.id===itemId ? Object.assign({},i,{image:publicUrl}):i; });
+    if(response.ok || response.status === 200){
+      console.log('[Upload] موفق!');
+      callSheet('updateImage', {id:itemId, image:uploadUrl}, function(){});
+      items = items.map(function(i){ return i.id===itemId ? Object.assign({},i,{image:uploadUrl}):i; });
       saveItems();
-      return {url: publicUrl};
+      return {url: uploadUrl};
     }
 
     let body='';
-    try{ body=await response.text(); }catch(e){}
-    console.error('[Upload] خطای سرور:', response.status, body.slice(0,200));
-    return {error:'[HTTP '+response.status+'] '+body.slice(0,100)};
+    try{ body = await response.text(); }catch(e){}
+    console.error('[Upload] خطای سرور:', response.status, body.slice(0,300));
+
+    if(response.status === 403){
+      // امضا لازمه - از Apps Script بگیر
+      console.log('[Upload] 403 - تلاش با Presigned URL...');
+      return await uploadViaPresigned(compressed, fileName, itemId);
+    }
+    return {error: '[HTTP '+response.status+'] ' + body.slice(0,150)};
 
   }catch(err){
-    console.error('[Upload] خطای کلی:', err);
-    return {error:'خطای کلی: '+err.message};
+    console.error('[Upload] خطا:', err);
+    return {error: err.message};
+  }
+}
+
+async function uploadViaPresigned(blob, fileName, itemId){
+  console.log('[Presigned] درخواست URL از Apps Script...');
+  const presigned = await new Promise(function(resolve){
+    const cb = 'psCb_'+Date.now();
+    const params = new URLSearchParams({action:'getPresignedUrl', callback:cb, itemId:itemId});
+    window[cb] = function(res){ delete window[cb]; const s=document.getElementById(cb);if(s)s.remove(); resolve(res); };
+    const script = document.createElement('script');
+    script.id = cb;
+    script.src = loadSheetUrl()+'?'+params.toString();
+    script.onerror = function(){ delete window[cb]; this.remove(); resolve({status:'error'}); };
+    setTimeout(function(){ if(window[cb]){ delete window[cb]; resolve({status:'error',message:'timeout'}); } },15000);
+    document.head.appendChild(script);
+  });
+
+  if(presigned.status !== 'ok') return {error:'[Presigned] '+presigned.message};
+
+  console.log('[Presigned] URL دریافت شد، آپلود...');
+  try{
+    const r = await fetch(presigned.uploadUrl, {
+      method:'PUT',
+      headers:{'Content-Type':'image/jpeg','x-amz-acl':'public-read'},
+      body: blob
+    });
+    console.log('[Presigned] پاسخ:', r.status);
+    if(r.ok){
+      callSheet('updateImage', {id:itemId, image:presigned.publicUrl}, function(){});
+      items = items.map(function(i){ return i.id===itemId ? Object.assign({},i,{image:presigned.publicUrl}):i; });
+      saveItems();
+      return {url: presigned.publicUrl};
+    }
+    let b=''; try{ b=await r.text(); }catch(e){}
+    return {error:'[Presigned HTTP '+r.status+'] '+b.slice(0,100)};
+  }catch(e){
+    return {error:'[Presigned Network] '+e.message};
   }
 }
 
