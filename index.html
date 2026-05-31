@@ -386,7 +386,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyXYyPAfBisPau2qaOhBd2q-vgR63itaBACu_jcA4VItpTI9tkh1L6tLyIWRFsvxy5w/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbzq5zhF3jYbevewdlyaN242rfJfvFEXfOWCgizhg-pSGCRf3FMVFoWx19a25bQ0DJ1F/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -504,7 +504,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbyXYyPAfBisPau2qaOhBd2q-vgR63itaBACu_jcA4VItpTI9tkh1L6tLyIWRFsvxy5w/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbzq5zhF3jYbevewdlyaN242rfJfvFEXfOWCgizhg-pSGCRf3FMVFoWx19a25bQ0DJ1F/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -1582,7 +1582,7 @@ async function uploadToArvan(file, itemId, statusEl){
     setStatus('ارسال '+chunks.length+' بخش...');
     for(var c=0; c<chunks.length; c++){
       await delay(300); // صبر بین chunk ها
-      const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
+      const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&dt='+encodeURIComponent(chunks[c]);
       var res = await callGET(params, 25000);
       if(!res || res.status!=='ok'){
         await delay(1000);
