@@ -1518,7 +1518,7 @@ async function uploadToArvan(file, itemId){
   console.log('[Upload] شروع:', file.name, Math.round(file.size/1024)+'KB');
   try{
     // فشرده‌سازی با کیفیت مناسب
-    let compressed = await compressImage(file, 800, 0.82);
+    let compressed = await compressImage(file, 500, 0.7);
     console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
     const base64 = await new Promise(function(resolve){
@@ -1528,7 +1528,7 @@ async function uploadToArvan(file, itemId){
     });
 
     const fileName = 'items/'+itemId+'.jpg';
-    const CHUNK = 1800;
+    const CHUNK = 800;
     const chunks = [];
     for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
     const sid = 'sid_'+Date.now();
