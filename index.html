@@ -386,7 +386,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbwfigFogTmch3e_0KTg3OCnrQFAWKUmbJeHFKSeK8U1kayTMADW49vIoeC8sMklUDbm/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbzq7GtM9zD2AvtvLRIMlP2je9nuntG9MXdU8zl5CMb9_wdfcYqmkkD90aBxWynkBxee/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -504,7 +504,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbwfigFogTmch3e_0KTg3OCnrQFAWKUmbJeHFKSeK8U1kayTMADW49vIoeC8sMklUDbm/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbzq7GtM9zD2AvtvLRIMlP2je9nuntG9MXdU8zl5CMb9_wdfcYqmkkD90aBxWynkBxee/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -1511,91 +1511,65 @@ var ARVAN_BUCKET = 'lab-inventory';
 async function uploadToArvan(file, itemId){
   console.log('[Upload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
   try{
-    // فشرده‌سازی شدید برای ذخیره در Sheet
-    const compressed = await compressImage(file, 200, 0.4);
+    // فشرده‌سازی
+    const compressed = await compressImage(file, 600, 0.7);
     console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
-    const base64 = await new Promise(function(resolve, reject){
-      const reader = new FileReader();
-      reader.onload = function(e){ resolve(e.target.result); }; // data:image/jpeg;base64,...
-      reader.onerror = reject;
-      reader.readAsDataURL(compressed);
+    // قدم ۱: گرفتن Presigned URL از Apps Script
+    console.log('[Upload] درخواست Presigned URL...');
+    const presignedResult = await new Promise(function(resolve){
+      const cb = 'psCb_'+Date.now();
+      const params = new URLSearchParams({action:'getPresignedUrl', callback:cb, itemId:itemId});
+      window[cb] = function(res){ delete window[cb]; const s=document.getElementById(cb);if(s)s.remove(); resolve(res); };
+      const script = document.createElement('script');
+      script.id = cb;
+      script.src = loadSheetUrl()+'?'+params.toString();
+      script.onerror = function(){ delete window[cb]; this.remove(); resolve({status:'error',message:'خطا در دریافت URL'}); };
+      setTimeout(function(){ if(window[cb]){ delete window[cb]; resolve({status:'error',message:'timeout'}); } },15000);
+      document.head.appendChild(script);
     });
 
-    console.log('[Upload] base64 طول:', base64.length);
+    if(presignedResult.status !== 'ok'){
+      return {error:'[Presigned] '+presignedResult.message};
+    }
+    console.log('[Upload] Presigned URL دریافت شد');
 
-    if(base64.length > 15000){
-      // خیلی بزرگه - فشرده‌تر کن
-      const compressed2 = await compressImage(file, 120, 0.3);
-      const base64_2 = await new Promise(function(resolve){
-        const r = new FileReader();
-        r.onload = function(e){ resolve(e.target.result); };
-        r.readAsDataURL(compressed2);
+    // قدم ۲: آپلود مستقیم به ArvanCloud با Presigned URL
+    let response;
+    try{
+      response = await fetch(presignedResult.uploadUrl, {
+        method: 'PUT',
+        headers: {'Content-Type': 'image/jpeg', 'x-amz-acl': 'public-read'},
+        body: compressed
       });
-      console.log('[Upload] فشرده‌تر:', base64_2.length, 'کاراکتر');
-      
-      if(base64_2.length > 15000){
-        return {error: '[Upload] عکس خیلی بزرگه — عکس کوچکتری انتخاب کن'};
-      }
-      return await saveImageToSheet(itemId, base64_2);
+      console.log('[Upload] پاسخ ArvanCloud:', response.status);
+    }catch(fetchErr){
+      console.error('[Upload] خطای شبکه:', fetchErr.message);
+      return {error:'[Upload] خطا در اتصال به ArvanCloud: '+fetchErr.message};
     }
-    
-    return await saveImageToSheet(itemId, base64);
+
+    if(response.ok || response.status===200){
+      const publicUrl = presignedResult.publicUrl;
+      console.log('[Upload] موفق!', publicUrl);
+      // ذخیره URL در Sheet
+      callSheet('updateImage', {id:itemId, image:publicUrl}, function(){
+        console.log('[Upload] URL در Sheet ذخیره شد');
+      });
+      // آپدیت لوکال
+      items = items.map(function(i){ return i.id===itemId ? Object.assign({},i,{image:publicUrl}):i; });
+      saveItems();
+      return {url: publicUrl};
+    }
+
+    let body='';
+    try{ body=await response.text(); }catch(e){}
+    console.error('[Upload] خطای سرور:', response.status, body.slice(0,200));
+    return {error:'[HTTP '+response.status+'] '+body.slice(0,100)};
+
   }catch(err){
-    console.error('[Upload] خطا:', err);
-    return {error: 'خطا: ' + err.message};
+    console.error('[Upload] خطای کلی:', err);
+    return {error:'خطای کلی: '+err.message};
   }
-}
-
-function saveImageToSheet(itemId, base64Data){
-  return new Promise(function(resolve){
-    const cbName = 'imgSaveCb_' + Date.now();
-    // عکس رو به صورت data URL در Sheet ذخیره می‌کنیم
-    const params = new URLSearchParams({
-      action: 'updateImage',
-      callback: cbName,
-      id: itemId,
-      image: base64Data
-    });
-
-    window[cbName] = function(res){
-      delete window[cbName];
-      const s = document.getElementById(cbName); if(s) s.remove();
-      console.log('[Upload] ذخیره در Sheet:', JSON.stringify(res));
-      if(res && res.status === 'ok'){
-        // آپدیت لوکال
-        items = items.map(function(i){
-          return i.id === itemId ? Object.assign({}, i, {image: base64Data}) : i;
-        });
-        saveItems();
-        resolve({url: base64Data});
-      } else {
-        resolve({error: 'خطا در ذخیره: ' + JSON.stringify(res)});
-      }
-    };
-
-    const script = document.createElement('script');
-    script.id = cbName;
-    // اگه URL خیلی بلند شد از chunk استفاده می‌کنیم
-    const url = loadSheetUrl() + '?' + params.toString();
-    if(url.length > 8000){
-      resolve({error: '[Upload] عکس هنوز هم خیلی بزرگه — عکس کوچکتری انتخاب کن (زیر ۵۰KB)'});
-      return;
-    }
-    script.src = url;
-    script.onerror = function(){
-      delete window[cbName]; this.remove();
-      resolve({error: '[Upload] خطا در اتصال به Sheet'});
-    };
-    setTimeout(function(){
-      if(window[cbName]){
-        delete window[cbName];
-        const s = document.getElementById(cbName); if(s) s.remove();
-        resolve({error: '[Upload] زمان تمام شد'});
-      }
-    }, 20000);
-    document.head.appendChild(script);
-  });
 }
 
 
