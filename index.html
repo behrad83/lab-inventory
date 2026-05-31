@@ -823,7 +823,8 @@ function applyRoleUI(){
     if(txt.includes('کاربران'))n.style.display=isAdmin?'flex':'none';
     if(txt.includes('تنظیمات'))n.style.display=isAdmin?'flex':'none';
     if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
-    if(txt.includes('جستجوی AI'))n.style.display=canDo('ai')?'flex':'none';
+    // AI همیشه برای همه کاربران نمایش داده میشه
+    if(txt.includes('جستجوی AI'))n.style.display='flex';
   });
 }
 
