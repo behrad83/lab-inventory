@@ -183,6 +183,218 @@ tr:hover td{background:#0e1018}
 
     <!-- ── ITEMS ── -->
     <div id="view-items" class="hidden">
+      <!-- هدر -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+        <div class="page-title" style="margin:0">📦 کالاها</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadFromSheet();renderDashboard();" style="font-size:12px">🔄 بروزرسانی</button>
+      </div>
+
+      <!-- فیلتر و سرچ -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <input class="inp" id="searchInp" placeholder="جستجو..." oninput="renderItems()" style="flex:2;min-width:150px">
+        <select class="inp" id="sortSelect" onchange="renderItems()" style="flex:1;min-width:120px">
+          <option value="">مرتب‌سازی...</option>
+          <option value="qty_asc">موجودی: کم به زیاد</option>
+          <option value="qty_desc">موجودی: زیاد به کم</option>
+          <option value="name_asc">نام: الف تا ی</option>
+          <option value="date_desc">جدیدترین</option>
+        </select>
+        <select class="inp" id="catFilter" onchange="renderItems()" style="flex:1;min-width:120px">
+          <option value="">همه دسته‌ها</option>
+        </select>
+      </div>
+
+      <!-- انتخاب دسته‌جمعی -->
+      <div id="bulkBar" style="display:none;background:#1e2235;border-radius:10px;padding:10px;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="selectedCount" style="font-size:13px;color:#9aa3c2">۰ کالا انتخاب شده</span>
+        <button class="btn btn-danger btn-sm" onclick="deleteSelected()">🗑️ حذف انتخاب‌شده‌ها</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearSelection()">انصراف</button>
+      </div>
+
+      <div id="itemsTable">ml lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>انبار آزمایشگاه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Vazirmatn','Tahoma',sans-serif;direction:rtl;background:#0b0d14;color:#e2e4f0;min-height:100vh}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#13151f}::-webkit-scrollbar-thumb{background:#2e3350;border-radius:4px}
+input,select,textarea{font-family:inherit;direction:rtl;outline:none}
+.hidden{display:none!important}
+
+/* ── LOGIN ── */
+#loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0b0d14 0%,#131627 100%);display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:#13151f;border:1px solid #1e2235;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;text-align:center}
+.login-logo{font-size:48px;margin-bottom:16px}
+.login-title{font-size:22px;font-weight:700;background:linear-gradient(135deg,#4f8ef7,#7c5af5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.login-sub{color:#4a5175;font-size:13px;margin-bottom:28px}
+.login-inp{width:100%;background:#0b0d14;border:1px solid #1e2235;border-radius:10px;padding:12px 16px;color:#e2e4f0;font-size:14px;margin-bottom:12px;transition:border .2s}
+.login-inp:focus{border-color:#4f8ef7}
+.login-btn{width:100%;background:linear-gradient(135deg,#4f8ef7,#7c5af5);border:none;border-radius:10px;padding:13px;color:white;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .2s;margin-top:4px}
+.login-btn:hover{opacity:.9}
+.login-err{color:#f87171;font-size:13px;margin-top:10px;min-height:20px}
+
+/* ── LAYOUT ── */
+#app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:#0e1018;border-left:1px solid #1a1d2e;padding:18px 14px;display:flex;flex-direction:column;gap:5px;position:fixed;top:0;right:0;bottom:0;overflow-y:auto;z-index:50}
+.main{flex:1;margin-right:220px;padding:24px;min-width:0}
+.logo{margin-bottom:22px;padding:0 6px}
+.logo-name{font-size:18px;font-weight:700;background:linear-gradient(135deg,#4f8ef7,#7c5af5);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:10px;color:#2e3350;margin-top:2px}
+.nav{padding:10px 12px;border-radius:10px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:9px;color:#5a6080;transition:all .15s;font-weight:500}
+.nav:hover{background:#13151f;color:#9aa3c2}
+.nav.active{background:linear-gradient(135deg,#4f8ef722,#7c5af522);color:#fff;border:1px solid #4f8ef730}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-bottom{margin-top:auto;border-top:1px solid #1a1d2e;padding-top:14px}
+.user-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;background:#13151f;font-size:12px;color:#5a6080;margin-bottom:8px}
+.user-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0}
+
+/* ── CARDS ── */
+.card{background:#13151f;border:1px solid #1a1d2e;border-radius:14px;padding:20px}
+.stat-card{background:linear-gradient(135deg,#13151f,#161929);border:1px solid #1a1d2e;border-radius:14px;padding:18px}
+.btn{border:none;cursor:pointer;font-family:inherit;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,#4f8ef7,#7c5af5);color:white}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:white}
+.btn-ghost{background:#1e2235;color:#9aa3c2}
+.btn-ghost:hover{background:#252840;color:#e2e4f0}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:white}
+.btn-sm{padding:6px 12px;font-size:12px}
+.inp{background:#0b0d14;border:1px solid #1a1d2e;border-radius:10px;padding:10px 14px;color:#e2e4f0;font-size:13px;width:100%;transition:border .2s}
+.inp:focus{border-color:#4f8ef7}
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-lab{background:#1e3a5f;color:#60a5fa}
+.tag-spare{background:#3b1f5e;color:#c084fc}
+.tag-resin{background:#1a3a2a;color:#4ade80}
+.badge-low{background:#3f1515;color:#f87171;border:1px solid #7f1d1d30}
+.badge-ok{background:#1a3a1a;color:#4ade80}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.modal{background:#13151f;border:1px solid #1e2235;border-radius:18px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.form-group label{font-size:12px;color:#5a6080;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:22px}
+table{width:100%;border-collapse:collapse}
+th{background:#0b0d14;color:#5a6080;font-size:11px;font-weight:600;padding:10px 12px;text-align:right;border-bottom:1px solid #1a1d2e}
+td{padding:10px 12px;border-bottom:1px solid #13151f;font-size:13px;vertical-align:middle}
+tr:hover td{background:#0e1018}
+.page-title{font-size:20px;font-weight:700;margin-bottom:18px}
+.row{display:flex;gap:10px;align-items:center}
+.ai-glow{border-color:#7c5af5!important;box-shadow:0 0 20px #7c5af520}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.chip{display:inline-flex;align-items:center;gap:6px;background:#1e2235;border-radius:8px;padding:5px 10px;font-size:12px;color:#9aa3c2}
+
+/* ── QR PRINT ── */
+.qr-card-wrap{background:white;border-radius:12px;padding:14px;text-align:center;width:170px;display:inline-flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 16px #0006;cursor:pointer;transition:transform .15s}
+.qr-card-wrap:hover{transform:scale(1.03)}
+.qr-name{font-size:11px;font-weight:700;color:#111;direction:rtl;line-height:1.4;max-width:150px}
+.qr-code-text{font-size:10px;color:#555;font-family:monospace}
+.qr-loc{font-size:10px;color:#666}
+@media print{
+  .no-print{display:none!important}
+  body{background:white;color:black}
+  .print-area{display:flex!important;flex-wrap:wrap;gap:16px;padding:16px}
+}
+
+/* ── SETUP BANNER ── */
+.setup-banner{background:linear-gradient(135deg,#1e1a3a,#2a1f4a);border:1px solid #7c5af5;border-radius:12px;padding:14px 18px;margin-bottom:18px}
+.setup-step{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #2a2f45}
+.setup-step:last-child{border-bottom:none}
+.step-num{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#4f8ef7,#7c5af5);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+@media(max-width:700px){
+  .sidebar{width:54px;padding:10px 8px}
+  .logo,.nav span:last-child,.sidebar-bottom .user-chip span,.sidebar-bottom .btn span,.logo-sub{display:none}
+  .nav{justify-content:center;padding:10px}
+  .nav-icon{width:auto}
+  .main{margin-right:54px;padding:14px}
+  .grid3{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOGIN ════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🧪</div>
+    <div class="login-title">انبار آزمایشگاه</div>
+    <div class="login-sub">سیستم مدیریت هوشمند انبار</div>
+    <input class="login-inp" id="loginUser" placeholder="نام کاربری" autocomplete="username">
+    <input class="login-inp" id="loginPass" placeholder="رمز عبور" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">ورود به سیستم</button>
+    <div class="login-err" id="loginErr"></div>
+    <div style="margin-top:16px;border-top:1px solid #1e2235;padding-top:16px">
+      <button onclick="showRegister()" style="background:none;border:none;color:#4f8ef7;font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">ثبت‌نام / درخواست دسترسی</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REGISTER ══════════════════════════════════════ -->
+<div id="registerScreen" class="hidden" style="position:fixed;inset:0;background:linear-gradient(135deg,#0b0d14 0%,#131627 100%);display:flex;align-items:center;justify-content:center;z-index:999">
+  <div class="login-box">
+    <div class="login-logo">📝</div>
+    <div class="login-title">ثبت‌نام</div>
+    <div class="login-sub">بعد از ثبت‌نام، ادمین دسترسی شما را تعیین می‌کند</div>
+    <input class="login-inp" id="regUser" placeholder="نام کاربری (انگلیسی)" autocomplete="username">
+    <input class="login-inp" id="regPass" placeholder="رمز عبور" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()">
+    <button class="login-btn" onclick="doRegister()">ارسال درخواست</button>
+    <div class="login-err" id="regErr"></div>
+    <div style="margin-top:16px;border-top:1px solid #1e2235;padding-top:16px">
+      <button onclick="showLogin()" style="background:none;border:none;color:#4f8ef7;font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">← بازگشت به ورود</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ═══════════════════════════════════════════ -->
+<div id="app" class="hidden">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-name">🧪 انبار لب</div>
+      <div class="logo-sub">مدیریت هوشمند انبار</div>
+    </div>
+    <div class="nav active" onclick="gotoView('dashboard',this)"><span class="nav-icon">📊</span><span>داشبورد</span></div>
+    <div class="nav" onclick="gotoView('items',this)"><span class="nav-icon">📦</span><span>کالاها</span></div>
+    <div class="nav" onclick="gotoView('add',this)"><span class="nav-icon">➕</span><span>افزودن کالا</span></div>
+    <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
+
+    <div class="nav" onclick="gotoView('users',this)"><span class="nav-icon">👥</span><span>کاربران</span></div>
+    <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
+    <div class="sidebar-bottom">
+      <div class="user-chip"><div class="user-dot"></div><span id="userLabel">admin</span></div>
+      <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="doLogout()"><span>🚪</span><span>خروج</span></button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="view-dashboard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div class="page-title" style="margin:0">📊 داشبورد</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span id="syncStatus" style="font-size:12px;color:#5a6080"></span>
+        <button class="btn btn-primary btn-sm" onclick="loadFromSheet()">🔄 بارگذاری از Sheets</button>
+      </div>
+    </div>
+      <div class="grid3" id="statsGrid"></div>
+      <div id="lowAlert"></div>
+      <div class="card">
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px">آخرین کالاهای اضافه‌شده</div>
+        <div style="overflow-x:auto">
+          <table><thead><tr><th>کد کالا</th><th>نام</th><th>دسته</th><th>موجودی</th><th>قفسه</th></tr></thead>
+          <tbody id="recentItems"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ITEMS ── -->
+    <div id="view-items" class="hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div class="page-title" style="margin:0">📦 کالاها</div>
         <div class="row">
@@ -301,7 +513,7 @@ tr:hover td{background:#0e1018}
 
     <!-- ── USERS ── -->
     <div id="view-users" class="hidden">
-      <div class="page-title">👥 مدیریت کاربران</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="page-title" style="margin:0">👥 مدیریت کاربران</div><button class="btn btn-ghost btn-sm" onclick="loadPendingFromSheet();loadFromSheet();" style="font-size:12px">🔄 بروزرسانی</button></div>
 
       <!-- Pending requests -->
       <div class="card" style="margin-bottom:16px">
@@ -386,7 +598,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbw56ibHDvuHlABZ7PeKZIbG4N4J5KOGPO458KLCHSFVHWOaRo9ovYCsZ7xrda-kzh2c/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycby-d7dlzlXTvohMdU5nKOa5ypGhj3cl-a31vgbnPLhUR_6TN8-kaKa_aMbpL7uthvv0/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -476,9 +688,9 @@ let USERS = JSON.parse(localStorage.getItem('lab_users')||JSON.stringify([
 let PENDING = JSON.parse(localStorage.getItem('lab_pending')||'[]');
 
 const ROLES = {
-  admin:    {label:'ادمین',    color:'#c084fc', perms:['view','add','delete','users','settings']},
-  operator: {label:'اپراتور', color:'#4ade80', perms:['view','add','ai','qr']},
-  viewer:   {label:'مشاهده',  color:'#60a5fa', perms:['view','ai','qr']},
+  admin:    {label:'ادمین',    color:'#c084fc', perms:['view','add','edit','delete','users','settings','ai']},
+  operator: {label:'اپراتور', color:'#4ade80', perms:['view','add','edit','delete','ai']},
+  viewer:   {label:'مشاهده',  color:'#60a5fa', perms:['view','ai']},
 };
 
 // دسته‌بندی‌ها
@@ -504,7 +716,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbw56ibHDvuHlABZ7PeKZIbG4N4J5KOGPO458KLCHSFVHWOaRo9ovYCsZ7xrda-kzh2c/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycby-d7dlzlXTvohMdU5nKOa5ypGhj3cl-a31vgbnPLhUR_6TN8-kaKa_aMbpL7uthvv0/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -718,20 +930,27 @@ function renderActiveUsers(){
   el.innerHTML=USERS.map(function(u,i){
     var roleColor=ROLES[u.role]?ROLES[u.role].color:'#9aa3c2';
     var roleLabel=ROLES[u.role]?ROLES[u.role].label:u.role;
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#0b0d14;border-radius:10px;margin-bottom:6px">
-      <div>
-        <span style="font-weight:600;font-size:13px">${u.name||u.user}</span>
-        <span style="color:#5a6080;font-size:12px;margin-right:8px">@${u.user}</span>
-        <span style="background:${roleColor}22;color:${roleColor};padding:2px 8px;border-radius:10px;font-size:11px">${roleLabel}</span>
+    return `<div style="background:#0b0d14;border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-weight:600;font-size:13px">${u.name||u.user}</span>
+          <span style="color:#5a6080;font-size:12px;margin-right:8px">@${u.user}</span>
+          <span style="background:${roleColor}22;color:${roleColor};padding:2px 8px;border-radius:10px;font-size:11px">${roleLabel}</span>
+        </div>
+        ${i===0?'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>':`
+        <div style="display:flex;gap:6px;align-items:center">
+          <select onchange="changeUserRole('${u.user}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:4px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
+            <option value="viewer" ${u.role==='viewer'?'selected':''}>مشاهده</option>
+            <option value="operator" ${u.role==='operator'?'selected':''}>اپراتور</option>
+            <option value="admin" ${u.role==='admin'?'selected':''}>ادمین</option>
+          </select>
+          <button class="btn btn-danger btn-sm" onclick="removeUser('${u.user}')">حذف</button>
+        </div>`}
       </div>
-      ${i===0?'<span style="color:#2e3350;font-size:11px">مدیر اصلی</span>':`
-      <div style="display:flex;gap:6px;align-items:center">
-        <select onchange="changeUserRole('${u.user}',this.value)" style="background:#1e2235;border:1px solid #2a2f45;border-radius:8px;padding:4px 8px;color:#e2e4f0;font-family:inherit;font-size:12px">
-          <option value="viewer" ${u.role==='viewer'?'selected':''}>مشاهده</option>
-          <option value="operator" ${u.role==='operator'?'selected':''}>اپراتور</option>
-          <option value="admin" ${u.role==='admin'?'selected':''}>ادمین</option>
-        </select>
-        <button class="btn btn-danger btn-sm" onclick="removeUser('${u.user}')">حذف</button>
+      ${i===0?'':`
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <input id="pw_${u.user}" type="password" placeholder="رمز جدید..." class="inp" style="flex:1;padding:7px 10px;font-size:12px">
+        <button class="btn btn-ghost btn-sm" onclick="changeUserPass('${u.user}')">🔑 تغییر رمز</button>
       </div>`}
     </div>`;
   }).join('');
@@ -741,6 +960,23 @@ function changeUserRole(username, role){
   callSheet('updateUserRole',{user:username,role:role},function(){
     USERS=USERS.map(function(u){return u.user===username?Object.assign({},u,{role:role}):u;});
     saveUsers();renderActiveUsers();
+  });
+}
+
+function changeUserPass(username){
+  const input=document.getElementById('pw_'+username);
+  if(!input||!input.value.trim()){alert('رمز جدید را وارد کنید');return;}
+  const newPass=input.value.trim();
+  if(newPass.length<4){alert('رمز باید حداقل ۴ کاراکتر باشد');return;}
+  callSheet('updateUserPass',{user:username,pass:newPass},function(res){
+    if(res&&res.status==='ok'){
+      USERS=USERS.map(function(u){return u.user===username?Object.assign({},u,{pass:newPass}):u;});
+      saveUsers();
+      input.value='';
+      alert('✅ رمز @'+username+' تغییر کرد');
+    } else {
+      alert('خطا در تغییر رمز');
+    }
   });
 }
 
@@ -775,6 +1011,7 @@ function applyRoleUI(){
     if(txt.includes('کاربران'))n.style.display=isAdmin?'flex':'none';
     if(txt.includes('تنظیمات'))n.style.display=isAdmin?'flex':'none';
     if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
+    if(txt.includes('جستجوی AI'))n.style.display=canDo('ai')?'flex':'none';
   });
 }
 
@@ -784,10 +1021,12 @@ function applyRoleUI(){
 function gotoView(v,el){
   document.querySelectorAll('[id^="view-"]').forEach(x=>x.classList.add('hidden'));
   document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));
-  document.getElementById('view-'+v).classList.remove('hidden');
-  if(el)el.classList.add('active');
+  var viewEl = document.getElementById('view-'+v);
+  if(viewEl) viewEl.classList.remove('hidden');
+  if(el && el.classList) el.classList.add('active');
   if(v==='dashboard')renderDashboard();
   else if(v==='items')renderItems();
+  else if(v==='add'){renderCatSelect();}
   else if(v==='ai'){}
   else if(v==='users'){
     if(!canDo('users')){alert('دسترسی ندارید');return;}
@@ -856,155 +1095,116 @@ function renderDashboard(){
 const catClass=c=>c==='آزمایشگاه'?'tag-lab':c==='یدکی'?'tag-spare':'tag-resin';
 
 function renderItems(){
-  const q=(document.getElementById('searchInp')?.value||'').trim();
-  const list=q?items.filter(i=>i.name.includes(q)||i.code.includes(q)||i.shelf.includes(q)||i.cat.includes(q)||i.desc.includes(q)):items;
-  document.getElementById('itemsTable').innerHTML=list.length?list.map(i=>`<tr>
-    <td style="color:#60a5fa;font-family:monospace;font-size:12px">${i.code}</td>
-    <td style="font-weight:500;max-width:220px">
-        <div style="display:flex;align-items:center;gap:10px">
-          ${i.image?`<img src="${i.image}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0">`:'<div style="width:40px;height:40px;background:#1e2235;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px">📦</div>'}
-          <div><div>${i.name}</div><div style="color:#5a6080;font-size:11px;margin-top:2px">${i.desc?i.desc.slice(0,35)+'…':''}</div></div>
-        </div>
-      </td>
-    <td><span class="tag ${catClass(i.cat)}">${i.cat}</span></td>
-    <td><span style="background:#1e2235;padding:2px 8px;border-radius:6px;font-size:11px">قفسه ${i.shelf||'-'} — ردیف ${i.row||'-'}</span></td>
-    <td style="font-weight:600">${i.qty} ${i.unit}</td>
-    <td><span class="tag ${i.qty<=i.minQty?'badge-low':'badge-ok'}">${i.qty<=i.minQty?'کم‌موجود':'موجود'}</span></td>
-    <td><div style="display:flex;gap:6px">
-      <button class="btn btn-ghost btn-sm" onclick="openDetail('${i.id}')">جزئیات</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteItem('${i.id}')">حذف</button>
-    </div></td>
-  </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;color:#2e3350;padding:32px">کالایی یافت نشد</td></tr>`;
-}
+  const search = (document.getElementById('searchInp')||{value:''}).value.trim().toLowerCase();
+  const sort = (document.getElementById('sortSelect')||{value:''}).value;
+  const catF = (document.getElementById('catFilter')||{value:''}).value;
 
-// ═══════════════════════════════════════════════
-//  ADD ITEM
-// ═══════════════════════════════════════════════
-function toggleUnit(){
-  const cat=document.getElementById('ni-cat').value;
-  const isResin=cat==='رزین';
-  const unitSel=document.getElementById('ni-unit');
-  const badge=document.getElementById('unitBadge');
-  const unitRow=document.getElementById('unitRow');
-  if(unitRow)unitRow.style.display=isResin?'flex':'none';
-  if(badge)badge.textContent=isResin?(unitSel?unitSel.value:'گرم'):'عدد';
-  document.getElementById('qtyLabel').textContent=isResin?'حجم/وزن موجودی *':'تعداد موجودی *';
-}
-
-function addItem(){
-  const name=document.getElementById('ni-name').value.trim();
-  const cat=document.getElementById('ni-cat').value;
-  const qty=parseInt(document.getElementById('ni-qty').value)||0;
-  if(!name){alert('نام کالا الزامی است');return;}
-
-  const unitEl=document.getElementById('ni-unit');
-  const unit=cat==='رزین'?(unitEl?unitEl.value:'گرم'):'عدد';
-  const code=genCode(cat);
-  const id='item_'+Date.now();
-  const item={
-    id,code,name,
-    desc:document.getElementById('ni-desc').value.trim(),
-    cat,qty,unit,
-    shelf:document.getElementById('ni-shelf').value.trim().toUpperCase()||'-',
-    row:document.getElementById('ni-row').value.trim()||'-',
-    minQty:parseInt(document.getElementById('ni-min').value)||0,
-    date:new Date().toLocaleDateString('fa-IR'),
-    image:''
-  };
-  items.push(item);
-  saveItems();
-  callSheet('add',item,function(){});
-
-  // لینک عکس از آپلود - بعد از ذخیره کالا آپدیت Sheet
-  const imgUrl = document.getElementById('ni-image-url').value.trim();
-  if(imgUrl){
-    item.image = imgUrl;
-    items=items.map(function(i){return i.id===id?Object.assign({},i,{image:imgUrl}):i;});
-    saveItems();
-    // آپدیت Sheet با لینک عکس
-    setTimeout(function(){
-      callSheet('updateImage',{id:id,image:imgUrl},function(){
-        console.log('[AddItem] عکس در Sheet آپدیت شد');
-      });
-    }, 1000);
+  // آپدیت فیلتر دسته‌بندی
+  const catSel = document.getElementById('catFilter');
+  if(catSel && catSel.options.length <= 1){
+    var cats = [...new Set(items.map(i=>i.cat))];
+    cats.forEach(function(c){
+      var opt=document.createElement('option');
+      opt.value=c; opt.textContent=c;
+      catSel.appendChild(opt);
+    });
   }
 
-  document.getElementById('addResult').classList.remove('hidden');
-  document.getElementById('addResultInfo').innerHTML=`
-    <div style="display:flex;flex-wrap:wrap;gap:10px">
-      ${[['کد کالا',code],['دسته',cat],['موجودی',qty+' '+unit],['قفسه',item.shelf+' / ردیف '+item.row]].map(function(r){
-        return '<div class="chip"><span style="color:#5a6080">'+r[0]+':</span><span style="color:#e2e4f0">'+r[1]+'</span></div>';
-      }).join('')}
-    </div>
-    <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="gotoView('items',document.querySelector('.nav:nth-child(2)'))">مشاهده کالاها ↗</button>`;
-  clearAddForm(true);
-}
-
-function previewImage(input){
-  const file=input.files[0];
-  if(!file)return;
-  document.getElementById('imagePreviewName').textContent=file.name;
-  document.getElementById('imagePreviewWrap').style.display='block';
-  const reader=new FileReader();
-  reader.onload=function(e){document.getElementById('imagePreview').src=e.target.result;};
-  reader.readAsDataURL(file);
-}
-
-function uploadImageToSheet(itemId, file, callback){
-  // فشرده‌سازی عکس و ذخیره به صورت base64 کوچک
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      // فشرده‌سازی به حداکثر 300x300
-      const canvas=document.createElement('canvas');
-      const MAX=300;
-      let w=img.width, h=img.height;
-      if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}
-      else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-      canvas.width=w; canvas.height=h;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0,w,h);
-      // کیفیت 0.6 برای فشرده‌سازی بیشتر
-      const compressed=canvas.toDataURL('image/jpeg',0.6);
-      
-      // ذخیره در localStorage و items
-      items=items.map(function(i){
-        return i.id===itemId?Object.assign({},i,{image:compressed}):i;
-      });
-      saveItems();
-      
-      // ذخیره در Sheet - فقط URL نه base64 (چون خیلی بزرگه)
-      // به جاش یه flag میذاریم که عکس لوکاله
-      callback(compressed);
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function clearAddForm(keepResult=false){
-  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
-    const el=document.getElementById(id);if(el)el.value='';
+  var filtered = items.filter(function(i){
+    var matchSearch = !search || i.name.toLowerCase().includes(search) || i.code.toLowerCase().includes(search) || (i.desc||'').toLowerCase().includes(search);
+    var matchCat = !catF || i.cat === catF;
+    return matchSearch && matchCat;
   });
-  const niPrev = document.getElementById('ni-img-preview');
-  if(niPrev) niPrev.style.display='none';
-  document.getElementById('ni-cat').value='آزمایشگاه';
-  toggleUnit();
-  if(!keepResult)document.getElementById('addResult').classList.add('hidden');
+
+  // مرتب‌سازی
+  if(sort === 'qty_asc') filtered.sort(function(a,b){return a.qty-b.qty;});
+  else if(sort === 'qty_desc') filtered.sort(function(a,b){return b.qty-a.qty;});
+  else if(sort === 'name_asc') filtered.sort(function(a,b){return a.name.localeCompare(b.name,'fa');});
+  else if(sort === 'date_desc') filtered.sort(function(a,b){return b.id.localeCompare(a.id);});
+
+  const el = document.getElementById('itemsTable');
+  if(!el) return;
+
+  if(!filtered.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:#2e3350">کالایی یافت نشد</div>';
+    return;
+  }
+
+  const canDel = canDo('delete');
+  const canEd = canDo('edit');
+
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr style="color:#5a6080;font-size:12px;border-bottom:1px solid #1a1d2e">'
+    + (canDel?'<th style="width:36px;padding:8px"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th>':'')
+    + '<th style="padding:8px;text-align:right">کالا</th>'
+    + '<th style="padding:8px;text-align:right">کد</th>'
+    + '<th style="padding:8px;text-align:right">دسته</th>'
+    + '<th style="padding:8px;text-align:right">موجودی</th>'
+    + '<th style="padding:8px;text-align:right">قفسه</th>'
+    + '<th style="padding:8px"></th>'
+    + '</tr></thead><tbody>'
+    + filtered.map(function(i){
+      var low = i.qty <= i.minQty;
+      var catColor = ROLES['admin'].color;
+      return '<tr style="border-bottom:1px solid #0b0d14;cursor:pointer" onclick="openDetail(&quot;'+i.id+'&quot;)">'
+        + (canDel?'<td style="padding:8px" onclick="event.stopPropagation()"><input type="checkbox" class="item-cb" value="'+i.id+'" onchange="updateBulkBar()"></td>':'')
+        + '<td style="padding:8px;max-width:180px">'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + (i.image?'<img src="'+i.image+'" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">':'<div style="width:36px;height:36px;background:#1e2235;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px">📦</div>')
+        + '<div><div style="font-weight:500;font-size:13px">'+i.name+'</div>'
+        + (i.desc?'<div style="color:#5a6080;font-size:11px">'+i.desc.slice(0,30)+'</div>':'')
+        + '</div></div></td>'
+        + '<td style="padding:8px;font-family:monospace;font-size:12px;color:#60a5fa">'+i.code+'</td>'
+        + '<td style="padding:8px"><span style="background:#1e2235;padding:2px 8px;border-radius:8px;font-size:11px">'+i.cat+'</span></td>'
+        + '<td style="padding:8px;font-weight:600;color:'+(low?'#f87171':'#4ade80')+'">'+i.qty+' '+i.unit+'</td>'
+        + '<td style="padding:8px;color:#5a6080;font-size:12px">'+i.shelf+'/'+i.row+'</td>'
+        + '<td style="padding:8px" onclick="event.stopPropagation()">'
+        + (canDel?'<button class="btn btn-danger btn-sm" onclick="deleteItem(&quot;'+i.id+'&quot;)">حذف</button>':'')
+        + '</td>'
+        + '</tr>';
+    }).join('')
+    + '</tbody></table>';
+
+  updateBulkBar();
 }
 
-function deleteItem(id){
-  if(!confirm('آیا مطمئنید؟'))return;
-  deleteFromSheet(id);
-  items=items.filter(i=>i.id!==id);
+function toggleSelectAll(cb){
+  document.querySelectorAll('.item-cb').forEach(function(el){ el.checked=cb.checked; });
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const selected = document.querySelectorAll('.item-cb:checked');
+  const bar = document.getElementById('bulkBar');
+  const count = document.getElementById('selectedCount');
+  if(bar){
+    bar.style.display = selected.length > 0 ? 'flex' : 'none';
+    if(count) count.textContent = selected.length + ' کالا انتخاب شده';
+  }
+}
+
+function clearSelection(){
+  document.querySelectorAll('.item-cb').forEach(function(el){ el.checked=false; });
+  const cb = document.getElementById('selectAll');
+  if(cb) cb.checked=false;
+  updateBulkBar();
+}
+
+function deleteSelected(){
+  const selected = [...document.querySelectorAll('.item-cb:checked')].map(function(el){return el.value;});
+  if(!selected.length) return;
+  if(!confirm('حذف '+selected.length+' کالا؟')) return;
+  selected.forEach(function(id){
+    items=items.filter(function(i){return i.id!==id;});
+    callSheet('delete',{id:id},function(){});
+  });
   saveItems();
+  clearSelection();
   renderItems();
+  renderDashboard();
 }
 
-// ═══════════════════════════════════════════════
-//  DETAIL MODAL
-// ═══════════════════════════════════════════════
+
 function openDetail(id){
   const i=items.find(function(x){return x.id===id;});
   if(!i)return;
@@ -1750,6 +1950,18 @@ function previewDriveImage(url, previewDivId){
     img.onload = function(){ wrap.style.display='block'; };
     img.onerror = function(){ wrap.style.display='none'; };
   }
+}
+
+function toggleUnit(){
+  var cat = document.getElementById('ni-cat');
+  if(!cat) return;
+  var isResin = cat.value === 'رزین';
+  var unitRow = document.getElementById('unitRow');
+  var badge = document.getElementById('unitBadge');
+  var qtyLabel = document.getElementById('qtyLabel');
+  if(unitRow) unitRow.style.display = isResin ? 'flex' : 'none';
+  if(badge) badge.textContent = isResin ? 'گرم' : 'عدد';
+  if(qtyLabel) qtyLabel.textContent = isResin ? 'حجم/وزن موجودی *' : 'تعداد موجودی *';
 }
 </script>
 </body>
