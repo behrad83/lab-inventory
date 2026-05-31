@@ -860,7 +860,12 @@ function renderItems(){
   const list=q?items.filter(i=>i.name.includes(q)||i.code.includes(q)||i.shelf.includes(q)||i.cat.includes(q)||i.desc.includes(q)):items;
   document.getElementById('itemsTable').innerHTML=list.length?list.map(i=>`<tr>
     <td style="color:#60a5fa;font-family:monospace;font-size:12px">${i.code}</td>
-    <td style="font-weight:500;max-width:180px"><div>${i.name}</div><div style="color:#5a6080;font-size:11px;margin-top:2px">${i.desc?i.desc.slice(0,40)+'…':''}</div></td>
+    <td style="font-weight:500;max-width:220px">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${i.image?`<img src="${i.image}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0">`:'<div style="width:40px;height:40px;background:#1e2235;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px">📦</div>'}
+          <div><div>${i.name}</div><div style="color:#5a6080;font-size:11px;margin-top:2px">${i.desc?i.desc.slice(0,35)+'…':''}</div></div>
+        </div>
+      </td>
     <td><span class="tag ${catClass(i.cat)}">${i.cat}</span></td>
     <td><span style="background:#1e2235;padding:2px 8px;border-radius:6px;font-size:11px">قفسه ${i.shelf||'-'} — ردیف ${i.row||'-'}</span></td>
     <td style="font-weight:600">${i.qty} ${i.unit}</td>
@@ -1014,7 +1019,8 @@ function openDetail(id){
     </div>
 
     ${i.image?`<div style="text-align:center;margin-bottom:16px">
-      <img src="${i.image}" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:12px;border:1px solid #1a1d2e">
+      <img src="${i.image}" style="width:100%;max-height:320px;object-fit:contain;border-radius:12px;border:1px solid #1a1d2e;background:#0b0d14;cursor:pointer" onclick="openFullImage('${i.image}')">
+      <div style="font-size:11px;color:#5a6080;margin-top:4px">برای بزرگنمایی کلیک کنید</div>
     </div>`:''}
     ${i.desc?`<div style="background:#0b0d14;border-radius:8px;padding:12px;font-size:13px;color:#9aa3c2;margin-bottom:16px;line-height:1.6">${i.desc}</div>`:''}
 
@@ -1087,7 +1093,7 @@ function openDetail(id){
       </div>
       <div class="form-group" style="margin-top:8px">
         <label>تغییر عکس کالا</label>
-        ${i.image?`<div style="margin-bottom:8px"><img src="${i.image}" style="width:100px;height:75px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e"></div>`:''}
+        ${i.image?`<div style="margin-bottom:10px"><img src="${i.image}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14"></div>`:''}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="file" id="edit-img-file-${i.id}" accept="image/*" capture="environment" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
           <input type="file" id="edit-img-gallery-${i.id}" accept="image/*" style="display:none" onchange="previewAndUpload(this,'edit-img-prev-${i.id}','edit-img-status-${i.id}','${i.id}')">
@@ -1512,7 +1518,7 @@ async function uploadToArvan(file, itemId){
   console.log('[Upload] شروع - فایل:', file.name, 'اندازه:', Math.round(file.size/1024)+'KB');
   try{
     // فشرده‌سازی
-    const compressed = await compressImage(file, 600, 0.7);
+    const compressed = await compressImage(file, 1200, 0.85);
     console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
 
     // قدم ۱: گرفتن Presigned URL از Apps Script
@@ -1635,6 +1641,17 @@ function compressImage(file, maxSize, quality){
     };
     reader.readAsDataURL(file);
   });
+}
+
+function openFullImage(src){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  overlay.onclick = function(){ document.body.removeChild(overlay); };
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px';
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
 }
 </script>
 </body>
