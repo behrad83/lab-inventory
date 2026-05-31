@@ -253,11 +253,10 @@ tr:hover td{background:#0e1018}
           <input class="inp" type="number" id="ni-min" placeholder="5" min="0">
         </div>
         <div class="form-group">
-          <label>عکس کالا (اختیاری)</label>
-          <div style="display:flex;gap:10px;align-items:center">
-            <input type="file" id="ni-image" accept="image/*" style="display:none" onchange="previewImage(this)">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('ni-image').click()">📷 انتخاب عکس</button>
-            <span id="imagePreviewName" style="font-size:12px;color:#5a6080"></span>
+          <label>لینک عکس کالا (اختیاری)</label>
+          <input class="inp" id="ni-image-url" placeholder="لینک عکس از Google Drive یا هر جای دیگه..." oninput="previewImageUrl(this.value)">
+          <div style="font-size:11px;color:#5a6080;margin-top:4px">
+            💡 عکس رو توی Google Drive آپلود کن → راست‌کلیک → Get link → Anyone with link → لینک رو اینجا paste کن
           </div>
           <div id="imagePreviewWrap" style="margin-top:8px;display:none">
             <img id="imagePreview" style="width:120px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #1a1d2e">
@@ -383,7 +382,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbxKSYszE8YkFYllyg-ubsYI7cLaiwwRz4lZY4jIq1PX5vPkbOt6rZBz2hDC9Ad1hWO_/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbxjwVCriuuM7EckWE_Zm1i2MWig2QzNvARGi6ivjj3WEol-F0b9eCFsnIJuwAUXO1R2/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -501,7 +500,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbxKSYszE8YkFYllyg-ubsYI7cLaiwwRz4lZY4jIq1PX5vPkbOt6rZBz2hDC9Ad1hWO_/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbxjwVCriuuM7EckWE_Zm1i2MWig2QzNvARGi6ivjj3WEol-F0b9eCFsnIJuwAUXO1R2/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -907,16 +906,14 @@ function addItem(){
   saveItems();
   callSheet('add',item,function(){});
 
-  // آپلود عکس اگه انتخاب شده
-  const imgFile=document.getElementById('ni-image').files[0];
-  if(imgFile){
-    uploadImageToSheet(id, imgFile, function(compressed){
-      if(compressed){
-        // عکس فشرده شده در localStorage ذخیره شده
-        // نمایش پیام موفقیت
-        console.log('Image saved locally for item:', id);
-      }
-    });
+  // ذخیره لینک عکس
+  const imgUrl=document.getElementById('ni-image-url').value.trim();
+  if(imgUrl){
+    const directUrl=convertDriveUrl(imgUrl);
+    items=items.map(function(i){return i.id===id?Object.assign({},i,{image:directUrl}):i;});
+    saveItems();
+    // آپدیت توی Sheet
+    callSheet('updateImage',{id:id,image:directUrl},function(){});
   }
 
   document.getElementById('addResult').classList.remove('hidden');
@@ -974,9 +971,10 @@ function uploadImageToSheet(itemId, file, callback){
 }
 
 function clearAddForm(keepResult=false){
-  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min'].forEach(id=>{
+  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
+  document.getElementById('imagePreviewWrap').style.display='none';
   document.getElementById('ni-cat').value='آزمایشگاه';
   toggleUnit();
   if(!keepResult)document.getElementById('addResult').classList.add('hidden');
@@ -1081,12 +1079,9 @@ function openDetail(id){
         </select>
       </div>
       <div class="form-group" style="margin-top:8px">
-        <label>تغییر عکس کالا</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="file" id="edit-image-${i.id}" accept="image/*" style="display:none" onchange="previewEditImage(this,'${i.id}')">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-image-${i.id}').click()">📷 انتخاب عکس</button>
-          <span id="edit-img-name-${i.id}" style="font-size:12px;color:#5a6080"></span>
-        </div>
+        <label>لینک عکس کالا</label>
+        <input class="inp" id="edit-image-url-${i.id}" value="${i.image||''}" placeholder="لینک عکس از Google Drive...">
+        <div style="font-size:11px;color:#5a6080;margin-top:4px">لینک Drive → راست‌کلیک → Get link → Anyone with link</div>
       </div>
       <div style="display:flex;gap:10px;margin-top:6px">
         <button class="btn btn-primary" style="flex:1" onclick="saveEdit('${i.id}')">💾 ذخیره تغییرات</button>
@@ -1137,14 +1132,15 @@ function saveEdit(id){
     callSheet('add',item,function(){});
   });
 
-  // آپلود عکس جدید اگه انتخاب شده
-  const imgInput=document.getElementById('edit-image-'+id);
-  if(imgInput&&imgInput.files[0]){
-    uploadImageToSheet(id, imgInput.files[0], function(compressed){
-      if(compressed){
-        console.log('Image updated locally for item:', id);
-      }
-    });
+  // ذخیره لینک عکس جدید
+  const imgUrlInput=document.getElementById('edit-image-url-'+id);
+  if(imgUrlInput){
+    const newImgUrl=convertDriveUrl(imgUrlInput.value.trim());
+    if(newImgUrl!==item.image){
+      items=items.map(function(i){return i.id===id?Object.assign({},i,{image:newImgUrl}):i;});
+      saveItems();
+      callSheet('updateImage',{id:id,image:newImgUrl},function(){});
+    }
   }
 
   closeDetail();
@@ -1466,6 +1462,28 @@ function previewEditImage(input, itemId){
   document.getElementById('edit-img-name-'+itemId).textContent=file.name;
 }
 
+
+function convertDriveUrl(url){
+  if(!url) return '';
+  // تبدیل لینک Google Drive به لینک مستقیم
+  var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(match) return 'https://drive.google.com/uc?export=view&id='+match[1];
+  // اگه لینک drive sharing بود
+  match = url.match(/id=([a-zA-Z0-9_-]+)/);
+  if(match) return 'https://drive.google.com/uc?export=view&id='+match[1];
+  // اگه لینک مستقیم بود همون رو برگردون
+  return url;
+}
+
+function previewImageUrl(url){
+  const wrap=document.getElementById('imagePreviewWrap');
+  const img=document.getElementById('imagePreview');
+  if(!url){wrap.style.display='none';return;}
+  const direct=convertDriveUrl(url);
+  img.src=direct;
+  img.onerror=function(){wrap.style.display='none';};
+  img.onload=function(){wrap.style.display='block';};
+}
 </script>
 </body>
 </html>
