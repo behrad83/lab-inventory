@@ -1524,21 +1524,17 @@ async function uploadToArvan(file, itemId, statusEl){
   setStatus('فشرده‌سازی...');
   try{
     // فشرده‌سازی تا زیر 3KB تا توی یه URL جا بشه
-    // کیفیت بالاتر - هدف زیر 3KB برای URL
-    var maxSize = 300, quality = 0.75;
+    // هدف زیر 14KB
+    var maxSize = 600, quality = 0.85;
     var compressed = await compressImage(file, maxSize, quality);
     var tries = 0;
-    while(compressed.size > 3000 && tries < 15){
-      if(tries < 5) quality = Math.max(0.3, quality - 0.08);
-      else maxSize = Math.max(80, maxSize - 20);
+    while(compressed.size > 14000 && tries < 15){
+      if(tries < 8) quality = Math.max(0.4, quality - 0.06);
+      else maxSize = Math.max(150, maxSize - 50);
       compressed = await compressImage(file, maxSize, quality);
       tries++;
     }
-    console.log('[Upload] فشرده نهایی:', Math.round(compressed.size/1024*100)/100+'KB', maxSize+'px', quality);
-    
-    if(compressed.size > 4000){
-      return {error:'عکس خیلی بزرگه — عکس کوچکتری بگیر'};
-    }
+    console.log('[Upload] فشرده:', Math.round(compressed.size/1024*10)/10+'KB', maxSize+'px Q:'+quality.toFixed(2));
 
     const base64 = await new Promise(function(resolve){
       const r = new FileReader();
@@ -1555,7 +1551,11 @@ async function uploadToArvan(file, itemId, statusEl){
       +'&fileName='+encodeURIComponent(fileName)
       +'&imageData='+encodeURIComponent(base64);
 
-    console.log('[Upload] URL طول:', (loadSheetUrl()+'?'+params).length);
+    const totalUrl = loadSheetUrl()+'?'+params+'&callback=xx';
+    console.log('[Upload] URL طول:', totalUrl.length);
+    if(totalUrl.length > 100000){
+      return {error:'عکس خیلی بزرگه'};
+    }
 
     const result = await new Promise(function(resolve){
       const cb = 'up'+Date.now();
