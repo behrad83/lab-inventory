@@ -1521,15 +1521,42 @@ async function uploadToArvan(file, itemId, statusEl){
     console.log('[Upload]', msg);
   }
 
-  setStatus('در حال فشرده‌سازی...');
+  function callGET(params, timeout){
+    return new Promise(function(resolve){
+      timeout = timeout || 20000;
+      const cb = 'cb'+Date.now()+Math.random().toString(36).slice(2,5);
+      const url = loadSheetUrl()+'?'+params+'&callback='+cb;
+      window[cb] = function(res){
+        delete window[cb];
+        var s=document.getElementById(cb);if(s)s.remove();
+        resolve(res);
+      };
+      var script = document.createElement('script');
+      script.id = cb;
+      script.src = url;
+      script.onerror = function(){
+        delete window[cb]; this.remove();
+        resolve(null);
+      };
+      setTimeout(function(){
+        if(window[cb]){
+          delete window[cb];
+          var s=document.getElementById(cb);if(s)s.remove();
+          resolve(null);
+        }
+      }, timeout);
+      document.head.appendChild(script);
+    });
+  }
 
+  setStatus('فشرده‌سازی...');
   try{
-    // فشرده‌سازی تا زیر 30KB
-    let compressed = await compressImage(file, 400, 0.65);
-    let tries = 0;
-    while(compressed.size > 30000 && tries < 5){
-      compressed = await compressImage(file, Math.max(200, 400 - tries*50), Math.max(0.3, 0.65 - tries*0.1));
+    var compressed = await compressImage(file, 400, 0.65);
+    var tries = 0;
+    while(compressed.size > 25000 && tries < 6){
+      compressed = await compressImage(file, Math.max(150, 400-tries*50), Math.max(0.25, 0.65-tries*0.1));
       tries++;
+      console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
     }
     setStatus('فشرده: '+Math.round(compressed.size/1024)+'KB');
 
@@ -1540,95 +1567,35 @@ async function uploadToArvan(file, itemId, statusEl){
     });
 
     const fileName = 'items/'+itemId+'.jpg';
-    const CHUNK = 1500;
+    const CHUNK = 1200;
     const chunks = [];
     for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
     const sid = 'sid'+Date.now();
+    console.log('[Upload] chunks:', chunks.length, 'sid:', sid);
     setStatus('ارسال '+chunks.length+' بخش...');
 
-    // ارسال هر chunk با fetch
     for(var c=0; c<chunks.length; c++){
-      const chunkUrl = loadSheetUrl()
-        +'?action=imgChunk'
-        +'&sid='+encodeURIComponent(sid)
-        +'&i='+c
-        +'&chunk='+encodeURIComponent(chunks[c]);
-
-      let ok = false;
-      // روش ۱: fetch no-cors
-      try{
-        await fetch(chunkUrl, {method:'GET', mode:'no-cors'});
-        ok = true;
-      }catch(e){
-        console.error('[Chunk fetch] err:', e.message);
+      const params = 'action=imgChunk&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
+      var res = await callGET(params, 20000);
+      if(!res || res.status !== 'ok'){
+        // retry once
+        setStatus('تلاش مجدد chunk '+(c+1)+'...');
+        res = await callGET(params, 20000);
+        if(!res || res.status !== 'ok'){
+          return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
+        }
       }
-
-      // روش ۲: script tag
-      if(!ok){
-        ok = await new Promise(function(resolve){
-          const cb='ck'+Date.now()+Math.random().toString(36).slice(2,5);
-          const url = chunkUrl+'&callback='+cb;
-          window[cb]=function(res){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();resolve(!!(res&&res.status==='ok'));};
-          const script=document.createElement('script');
-          script.id=cb; script.src=url;
-          script.onerror=function(){delete window[cb];this.remove();resolve(false);};
-          setTimeout(function(){if(window[cb]){delete window[cb];resolve(false);}},10000);
-          document.head.appendChild(script);
-        });
-      }
-
-      if(!ok) return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
       setStatus('ارسال... '+Math.round((c+1)/chunks.length*80)+'%');
     }
 
-    // آپلود نهایی
-    setStatus('آپلود به فضای ابری...');
-    const finUrl = loadSheetUrl()+'?action=imgFinish'
-      +'&sid='+encodeURIComponent(sid)
-      +'&fileName='+encodeURIComponent(fileName)
-      +'&itemId='+encodeURIComponent(itemId)
-      +'&total='+chunks.length;
+    setStatus('آپلود نهایی به فضای ابری...');
+    const finParams = 'action=imgFinish&sid='+encodeURIComponent(sid)+'&fileName='+encodeURIComponent(fileName)+'&itemId='+encodeURIComponent(itemId)+'&total='+chunks.length;
+    
+    // imgFinish با timeout بیشتر (60 ثانیه)
+    var result = await callGET(finParams, 60000);
+    console.log('[Upload] نتیجه نهایی:', JSON.stringify(result));
 
-    // اول با script tag امتحان کن
-    const result = await new Promise(function(resolve){
-      const cb='fin'+Date.now();
-      window[cb]=function(res){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();resolve(res);};
-      const script=document.createElement('script');
-      script.id=cb;
-      script.src=finUrl+'&callback='+cb;
-      script.onerror=function(){
-        delete window[cb];this.remove();
-        console.log('[Finish] script failed, trying fetch...');
-        // fallback با fetch
-        fetch(finUrl+'&callback=none',{method:'GET',mode:'no-cors'})
-          .then(function(){
-            // no-cors موفق - صبر کن بعد چک کن
-            setTimeout(function(){
-              resolve({status:'ok', url:'https://s3.ir-thr-at1.arvanstorage.ir/lab-inventory/'+fileName});
-            }, 3000);
-          })
-          .catch(function(e){
-            resolve({status:'error',message:'خطای شبکه: '+e.message});
-          });
-      };
-      setTimeout(function(){
-        if(window[cb]){
-          delete window[cb];
-          const s=document.getElementById(cb);if(s)s.remove();
-          // timeout - سعی کن با fetch
-          fetch(finUrl+'&callback=none',{method:'GET',mode:'no-cors'})
-            .then(function(){
-              setTimeout(function(){
-                resolve({status:'ok',url:'https://s3.ir-thr-at1.arvanstorage.ir/lab-inventory/'+fileName});
-              },3000);
-            })
-            .catch(function(){resolve({status:'error',message:'timeout'});});
-        }
-      },15000);
-      document.head.appendChild(script);
-    });
-
-    if(result&&result.status==='ok'){
+    if(result && result.status==='ok'){
       items=items.map(function(i){return i.id===itemId?Object.assign({},i,{image:result.url}):i;});
       saveItems();
       return {url:result.url};
