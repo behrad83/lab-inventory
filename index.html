@@ -1516,11 +1516,22 @@ var ARVAN_ENDPOINT = 'https://s3.ir-thr-at1.arvanstorage.ir';
 var ARVAN_BUCKET = 'lab-inventory';
 
 async function uploadToArvan(file, itemId, statusEl){
-  console.log('[Upload] شروع:', file.name, Math.round(file.size/1024)+'KB');
+  function setStatus(msg, color){
+    if(statusEl){ statusEl.style.color=color||'#9aa3c2'; statusEl.textContent=msg; }
+    console.log('[Upload]', msg);
+  }
+
+  setStatus('در حال فشرده‌سازی...');
+
   try{
-    // فشرده‌سازی با کیفیت مناسب
-    let compressed = await compressImage(file, 500, 0.7);
-    console.log('[Upload] فشرده:', Math.round(compressed.size/1024)+'KB');
+    // فشرده‌سازی تا زیر 30KB
+    let compressed = await compressImage(file, 400, 0.65);
+    let tries = 0;
+    while(compressed.size > 30000 && tries < 5){
+      compressed = await compressImage(file, Math.max(200, 400 - tries*50), Math.max(0.3, 0.65 - tries*0.1));
+      tries++;
+    }
+    setStatus('فشرده: '+Math.round(compressed.size/1024)+'KB');
 
     const base64 = await new Promise(function(resolve){
       const r = new FileReader();
@@ -1529,65 +1540,71 @@ async function uploadToArvan(file, itemId, statusEl){
     });
 
     const fileName = 'items/'+itemId+'.jpg';
-    const CHUNK = 800;
+    const CHUNK = 1500;
     const chunks = [];
     for(var i=0; i<base64.length; i+=CHUNK) chunks.push(base64.slice(i,i+CHUNK));
-    const sid = 'sid_'+Date.now();
-    console.log('[Upload] chunks:', chunks.length);
+    const sid = 'sid'+Date.now();
+    setStatus('ارسال '+chunks.length+' بخش...');
 
-    // ارسال chunk ها
+    // ارسال هر chunk با fetch
     for(var c=0; c<chunks.length; c++){
-      const ok = await new Promise(function(resolve){
-        const cb='ck_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
-        const url=loadSheetUrl()+'?action=imgChunk&callback='+cb+'&sid='+encodeURIComponent(sid)+'&i='+c+'&chunk='+encodeURIComponent(chunks[c]);
-        window[cb]=function(res){
-          delete window[cb];
-          const s=document.getElementById(cb);if(s)s.remove();
-          resolve(res&&res.status==='ok');
-        };
-        const script=document.createElement('script');
-        script.id=cb;
-        script.src=url;
-        script.onerror=function(){
-          console.error('[Chunk] onerror on chunk '+c);
-          delete window[cb];this.remove();resolve(false);
-        };
-        setTimeout(function(){
-          if(window[cb]){
-            console.error('[Chunk] timeout on chunk '+c);
-            delete window[cb];
-            const s=document.getElementById(cb);if(s)s.remove();
-            resolve(false);
-          }
-        },20000);
-        document.head.appendChild(script);
-      });
-      if(!ok){return {error:'خطا در ارسال chunk '+c+' از '+chunks.length};}
-      console.log('[Upload] chunk '+(c+1)+'/'+chunks.length+' OK');
-      const pct = Math.round((c+1)/chunks.length*80);
-      if(statusEl) statusEl.textContent = 'آپلود... '+pct+'%';
+      const chunkUrl = loadSheetUrl()
+        +'?action=imgChunk'
+        +'&sid='+encodeURIComponent(sid)
+        +'&i='+c
+        +'&chunk='+encodeURIComponent(chunks[c]);
+
+      let ok = false;
+      // روش ۱: fetch no-cors
+      try{
+        await fetch(chunkUrl, {method:'GET', mode:'no-cors'});
+        ok = true;
+      }catch(e){
+        console.error('[Chunk fetch] err:', e.message);
+      }
+
+      // روش ۲: script tag
+      if(!ok){
+        ok = await new Promise(function(resolve){
+          const cb='ck'+Date.now()+Math.random().toString(36).slice(2,5);
+          const url = chunkUrl+'&callback='+cb;
+          window[cb]=function(res){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();resolve(!!(res&&res.status==='ok'));};
+          const script=document.createElement('script');
+          script.id=cb; script.src=url;
+          script.onerror=function(){delete window[cb];this.remove();resolve(false);};
+          setTimeout(function(){if(window[cb]){delete window[cb];resolve(false);}},10000);
+          document.head.appendChild(script);
+        });
+      }
+
+      if(!ok) return {error:'خطا در بخش '+(c+1)+' از '+chunks.length};
+      setStatus('ارسال... '+Math.round((c+1)/chunks.length*80)+'%');
     }
 
     // آپلود نهایی
-    console.log('[Upload] آپلود نهایی...');
+    setStatus('آپلود به فضای ابری...');
     const result = await new Promise(function(resolve){
-      const cb='fin_'+Date.now();
-      const params=new URLSearchParams({action:'imgFinish',callback:cb,sid:sid,fileName:fileName,itemId:itemId,total:chunks.length});
+      const cb='fin'+Date.now();
+      const url=loadSheetUrl()+'?action=imgFinish&callback='+cb
+        +'&sid='+encodeURIComponent(sid)
+        +'&fileName='+encodeURIComponent(fileName)
+        +'&itemId='+encodeURIComponent(itemId)
+        +'&total='+chunks.length;
       window[cb]=function(res){delete window[cb];const s=document.getElementById(cb);if(s)s.remove();resolve(res);};
       const script=document.createElement('script');
-      script.id=cb;script.src=loadSheetUrl()+'?'+params.toString();
+      script.id=cb; script.src=url;
       script.onerror=function(){delete window[cb];this.remove();resolve({status:'error',message:'خطای شبکه'});};
       setTimeout(function(){if(window[cb]){delete window[cb];resolve({status:'error',message:'timeout'});}},30000);
       document.head.appendChild(script);
     });
 
-    console.log('[Upload] نتیجه:', JSON.stringify(result));
     if(result&&result.status==='ok'){
       items=items.map(function(i){return i.id===itemId?Object.assign({},i,{image:result.url}):i;});
       saveItems();
       return {url:result.url};
     }
-    return {error:'[Finish] '+(result&&result.message?result.message:'خطا')};
+    return {error:'[Finish] '+(result&&result.message?result.message:JSON.stringify(result))};
+
   }catch(err){
     console.error('[Upload] خطا:', err);
     return {error:err.message};
