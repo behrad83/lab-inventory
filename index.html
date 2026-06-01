@@ -427,7 +427,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyYt0DAEQxpuKaCzUVCqG6tRJnjKFxf8KE6T77se9ceVf6cxlojgSytcGp_6P6vUH6c/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyqqxxSItuZl2UdVKUZY7PSIT6kD1Qy_Vi4q90nV1V0W_x-5ybowkVJtDy2kqGWXFdF/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -545,7 +545,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbyYt0DAEQxpuKaCzUVCqG6tRJnjKFxf8KE6T77se9ceVf6cxlojgSytcGp_6P6vUH6c/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyqqxxSItuZl2UdVKUZY7PSIT6kD1Qy_Vi4q90nV1V0W_x-5ybowkVJtDy2kqGWXFdF/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -2050,7 +2050,7 @@ function renderPendingChanges(){
   el.innerHTML = bulkHeader + pendingChanges.map(function(p){
     var data = {};
     try { data = JSON.parse(p.data||'{}'); } catch(e){}
-    var status = p.status || 'pending';
+    var status = (p.status && p.status.trim()) ? p.status.trim() : 'pending';
     var isPending = status === 'pending';
     var typeLabel = p.type==='add'?'➕ افزودن': p.type==='delete'?'🗑️ حذف':'✏️ ویرایش';
     var typeColor = p.type==='add'?'#4ade80': p.type==='delete'?'#f87171':'#60a5fa';
@@ -2274,7 +2274,7 @@ function renderMyChanges(){
   el.innerHTML = visibleChanges.map(function(c){
     var data = {};
     try { data = JSON.parse(c.data||'{}'); } catch(e){}
-    var status = c.status || 'pending';
+    var status = (c.status && c.status.trim()) ? c.status.trim() : 'pending';
     var statusLabel = status==='pending'?'⏳ در حال بررسی': status==='approved'?'✅ تأیید شده':'❌ رد شده';
     var statusColor = status==='pending'?'#f59e0b': status==='approved'?'#4ade80':'#f87171';
     var typeLabel = c.type==='add'?'➕ افزودن': c.type==='delete'?'🗑️ حذف':'✏️ ویرایش';
