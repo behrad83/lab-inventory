@@ -867,11 +867,15 @@ function applyRoleUI(){
     if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
     if(txt.includes('جستجوی AI'))n.style.display='flex';
   });
+  // دکمه خروجی Excel فقط برای ادمین
+  document.querySelectorAll('[onclick*="exportToExcel"]').forEach(function(btn){
+    btn.style.display = isAdmin ? 'inline-flex' : 'none';
+  });
   // اعلان برای همه کاربران
   if(isAdmin){
-    loadPendingChanges(); // ادمین درخواست‌های کاربران
+    loadPendingChanges();
   } else {
-    loadMyChanges(); // operator وضعیت درخواست‌های خودش
+    loadMyChanges();
   }
 }
 
@@ -2481,6 +2485,7 @@ function renderArchivedChanges(){
   var bulkHeader = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
     + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9aa3c2;cursor:pointer">'
     + '<input type="checkbox" id="selectAllChanges" onchange="toggleSelectAllChanges(this)"> انتخاب همه</label>'
+    + '<button class="btn btn-ghost btn-sm" onclick="exportArchiveToExcel()">📊 خروجی Excel</button>'
     + '<div id="bulkChangeBar" style="display:none;gap:6px;align-items:center">'
     + '<button class="btn btn-ghost btn-sm" style="color:#f87171" onclick="bulkDeleteChanges()">🗑️ حذف انتخاب‌شده</button>'
     + '<span id="bulkChangeCount" style="font-size:12px;color:#5a6080"></span>'
@@ -2767,6 +2772,7 @@ function submitChatRequest(){
 // ── خروجی Excel ──
 
 function exportToExcel(){
+  if(!canDo('users')){ showToast('فقط ادمین دسترسی دارد'); return; }
   // کالاهایی که نمایش داده شدن (با فیلتر فعلی) رو export کن
   var search = (document.getElementById('searchInp').value||'').trim().toLowerCase();
   var catFilter = document.getElementById('catFilter').value||'';
@@ -2823,6 +2829,55 @@ function exportToExcel(){
     a.click();
     URL.revokeObjectURL(url);
     showToast('✅ فایل CSV دانلود شد');
+  }
+}
+
+function exportArchiveToExcel(){
+  if(!canDo('users')){ showToast('فقط ادمین دسترسی دارد'); return; }
+  if(!archivedChanges.length){ showToast('بایگانی خالی است'); return; }
+
+  var rows = archivedChanges.map(function(p){
+    var data = {};
+    try { data = JSON.parse(p.data||'{}'); } catch(e){}
+    var msgs = [];
+    try { msgs = JSON.parse(p.messages||'[]'); } catch(e){}
+    var typeLabel = p.type==='add'?'افزودن': p.type==='delete'?'حذف': p.type==='message'?'گفتگو':'ویرایش';
+    var st = (p.status||'').trim();
+    var statusLabel = st==='approved'?'تأیید شده': st==='rejected'?'رد شده':'بایگانی';
+
+    // خلاصه گفتگو
+    var chatText = msgs.map(function(m){ return (m.role==='admin'?'ادمین':m.user)+': '+m.text; }).join(' | ');
+
+    // تغییر موجودی
+    var qtyChange = '';
+    if(p.type==='edit' && data._orig_qty!==undefined && data._orig_qty!==null){
+      qtyChange = data._orig_qty + ' ← ' + data.qty + ' ' + (data.unit||'');
+    } else if(data.qty!==undefined){
+      qtyChange = data.qty + ' ' + (data.unit||'');
+    }
+
+    return {
+      'نوع درخواست': typeLabel,
+      'کالا': data.name || data.subject || p.itemId || '',
+      'کد کالا': data.code || '',
+      'تغییر موجودی': qtyChange,
+      'کاربر': p.user,
+      'وضعیت': statusLabel,
+      'تاریخ': p.date,
+      'گفتگو': chatText
+    };
+  });
+
+  if(typeof XLSX !== 'undefined'){
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:12},{wch:22},{wch:12},{wch:18},{wch:12},{wch:12},{wch:14},{wch:50}];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'بایگانی درخواست‌ها');
+    var fileName = 'بایگانی_درخواست‌ها_' + new Date().toLocaleDateString('fa-IR').replace(/\//g,'-') + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    showToast('✅ فایل Excel دانلود شد ('+rows.length+' درخواست)');
+  } else {
+    showToast('❌ کتابخانه Excel بارگذاری نشده');
   }
 }
 </script>
