@@ -420,7 +420,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbweWXVhJW9mgRKkDTCi1BKOlPgxT-A7Qay4P3oXVsC5VbaMWgIHmAFI7kgv7XKEXdgc/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbzhyFwl1Mdh4I2SY6hUwdJCukqbAyLjED5U1VXy5e_6DEXaNihqf95Ckknys6SxGC9J/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -538,7 +538,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbweWXVhJW9mgRKkDTCi1BKOlPgxT-A7Qay4P3oXVsC5VbaMWgIHmAFI7kgv7XKEXdgc/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbzhyFwl1Mdh4I2SY6hUwdJCukqbAyLjED5U1VXy5e_6DEXaNihqf95Ckknys6SxGC9J/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -776,8 +776,8 @@ function renderActiveUsers(){
       </div>`}
     </div>`;
   }).join('');
+  autoLoadMessages(myChanges);
 }
-
 function changeUserRole(username, role){
   callSheet('updateUserRole',{user:username,role:role},function(){
     USERS=USERS.map(function(u){return u.user===username?Object.assign({},u,{role:role}):u;});
@@ -1209,6 +1209,8 @@ function saveEdit(id){
     showToast('✅ تغییرات ذخیره شد');
   } else {
     // operator درخواست می‌فرسته
+    var initMsg = prompt('توضیح برای ادمین (اختیاری):') || '';
+    window._pendingInitMsg = initMsg;
     submitChange('edit', id, updated);
     closeDetail();
   }
@@ -1258,8 +1260,9 @@ function changeQty(id,dir){
     // operator درخواست می‌فرسته
     const newQty = Math.max(0, item.qty + dir*amt);
     const changeData = Object.assign({}, item, {qty: newQty});
+    var initMsg = prompt((dir>0?'دلیل افزایش موجودی':'دلیل کاهش موجودی')+' (اختیاری):') || '';
+    window._pendingInitMsg = initMsg;
     submitChange('edit', id, changeData);
-    showToast((dir>0?'درخواست افزایش':'درخواست کاهش')+' موجودی ارسال شد — منتظر تأیید ادمین');
     closeDetail();
   }
 }
@@ -1839,6 +1842,8 @@ function addItem(){
     saveItems();
     callSheet('add',item,function(){});
   } else {
+    var initMsg = prompt('توضیح برای ادمین (اختیاری):\nمثلاً: این کالا برای پروژه X نیاز است') || '';
+    window._pendingInitMsg = initMsg;
     submitChange('add', '', item);
     clearAddForm();
     return;
@@ -1890,9 +1895,10 @@ function deleteItem(id){
     renderItems();
     renderDashboard();
   } else {
+    var initMsg = prompt('دلیل حذف (اختیاری):') || '';
+    window._pendingInitMsg = initMsg;
     submitChange('delete', id, item || {id:id});
     closeDetail();
-    showToast('درخواست حذف ارسال شد — منتظر تأیید ادمین');
   }
 }
 
@@ -2043,24 +2049,35 @@ function renderPendingChanges(){
       + buildChangeDetail(p.type, data)
       + '</div>'
 
-      // پیام ادمین (اگه داره)
-      + (p.adminMsg ? '<div style="background:#1e2235;border-right:3px solid #4f8ef7;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#9aa3c2;margin-bottom:12px">💬 '+p.adminMsg+'</div>' : '')
+      // بخش پیام‌ها
+      + '<div style="margin-top:12px">'
+      + '<div style="font-size:12px;color:#5a6080;margin-bottom:6px">💬 گفتگو</div>'
+      + '<div id="msgs_'+p.id+'" style="background:#0b0d14;border-radius:8px;padding:8px;max-height:150px;overflow-y:auto;margin-bottom:8px;min-height:40px">'
+      + '<div style="color:#5a6080;font-size:11px;text-align:center;padding:8px">در حال بارگذاری...</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px">'
+      + '<input id="msgInput_'+p.id+'" type="text" class="inp" placeholder="پیام بنویسید..." style="flex:1;font-size:12px;padding:7px 10px" onkeydown="if(event.key==&apos;Enter&apos;)submitMessageInChange(&quot;'+p.id+'&quot;)">'
+      + '<button class="btn btn-ghost btn-sm" onclick="submitMessageInChange(&quot;'+p.id+'&quot;)">ارسال</button>'
+      + '</div>'
+      + '</div>'
 
-      // دکمه‌ها فقط برای pending
-      + (isPending
-        ? '<div style="margin-top:4px">'
-          + '<label style="font-size:12px;color:#5a6080;display:block;margin-bottom:4px">💬 پیام به اپراتور (اختیاری):</label>'
-          + '<input id="adminMsg_'+p.id+'" type="text" class="inp" placeholder="مثلاً: موجودی تأیید شد، لطفاً قفسه را بررسی کنید..." style="font-size:12px;padding:8px 10px;margin-bottom:10px;width:100%;box-sizing:border-box">'
-          + '<div style="display:flex;gap:8px">'
+      // دکمه‌های تأیید/رد فقط برای pending و ادمین
+      + (isPending && canDo('users')
+        ? '<div style="display:flex;gap:8px;margin-top:10px">'
           + '<button class="btn btn-primary btn-sm" onclick="approvePendingChange(&quot;'+p.id+'&quot;)">✅ تأیید</button>'
           + '<button class="btn btn-danger btn-sm" onclick="rejectPendingChange(&quot;'+p.id+'&quot;)">❌ رد</button>'
           + '</div>'
-          + '</div>'
-        : '<div style="margin-top:8px;font-size:11px;color:#5a6080">برای ارسال پیام یا تغییر وضعیت، درخواست را باز کنید</div>')
+        : '')
       + '</div>';
   }).join('');
+  autoLoadMessages(pendingChanges);
 }
-
+// بارگذاری پیام‌ها بعد از render
+function autoLoadMessages(changeList){
+  changeList.forEach(function(c){
+    setTimeout(function(){ loadChangeMessages(c.id); }, 300);
+  });
+}
 
 function approvePendingChange(id){
   var msgEl = document.getElementById('adminMsg_'+id);
@@ -2134,10 +2151,14 @@ function submitChange(type, itemId, data){
     var s = document.getElementById(cbName); if(s) s.remove();
     if(res && res.status==='ok'){
       showToast('✅ درخواست ارسال شد — منتظر تأیید ادمین');
-      setTimeout(loadMyChanges, 1000);
+      // اگه توضیح اولیه داشت ارسال کن
+      if(window._pendingInitMsg && window._pendingInitMsg.trim()){
+        sendChangeMessage(changeId, currentUser.user, 'operator', window._pendingInitMsg);
+        window._pendingInitMsg = '';
+      }
+      setTimeout(loadMyChanges, 1500);
     } else {
       showToast('❌ خطا در ارسال درخواست');
-      console.error('submitChange error:', JSON.stringify(res));
     }
   };
   
@@ -2191,7 +2212,13 @@ function renderMyChanges(){
       + '</div>'
       + '<div style="margin-top:8px;font-size:11px;color:#5a6080">'+c.date+'</div>'
       + (data.qty!==undefined ? '<div style="margin-top:4px;font-size:12px"><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+data.qty+' '+(data.unit||'')+'</span></div>' : '')
-      + (c.adminMsg ? '<div style="margin-top:6px;background:#1e2235;border-right:3px solid #4f8ef7;padding:6px 10px;border-radius:0 6px 6px 0;font-size:11px;color:#9aa3c2">💬 پیام ادمین: '+c.adminMsg+'</div>' : '')
+      + '<div style="margin-top:8px">'
+      + '<div style="font-size:11px;color:#5a6080;margin-bottom:4px">💬 گفتگو</div>'
+      + '<div id="msgs_'+c.id+'" style="background:#0b0d14;border-radius:6px;padding:6px;max-height:120px;overflow-y:auto;min-height:30px;margin-bottom:6px">'
+      + '<div style="color:#5a6080;font-size:10px;text-align:center">در حال بارگذاری...</div>'
+      + '</div>'
+      + (status==='pending' ? '<div style="display:flex;gap:6px"><input id="msgInput_'+c.id+'" type="text" class="inp" placeholder="پاسخ به ادمین..." style="flex:1;font-size:11px;padding:6px 8px"><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="submitMessageInChange(&quot;'+c.id+'&quot;)">ارسال</button></div>' : '')
+      + '</div>'
       + '</div>';
   }).join('');
 }
@@ -2264,6 +2291,61 @@ function buildChangeDetail(type, data){
   }
 
   return rows;
+}
+
+// ── سیستم پیام داخل درخواست ──
+
+function sendChangeMessage(changeId, user, role, text){
+  if(!text || !text.trim()) return;
+  callSheet('sendMessage', {
+    changeId: changeId,
+    user: user,
+    role: role,
+    text: text.trim()
+  }, function(res){
+    if(res && res.status==='ok'){
+      // reload messages for this change
+      loadChangeMessages(changeId);
+    }
+  });
+}
+
+function loadChangeMessages(changeId){
+  callSheet('getMessages', {changeId: changeId}, function(res){
+    if(res && res.messages){
+      renderChangeMessages(changeId, res.messages);
+    }
+  });
+}
+
+function renderChangeMessages(changeId, messages){
+  var el = document.getElementById('msgs_'+changeId);
+  if(!el) return;
+  if(!messages.length){
+    el.innerHTML = '<div style="color:#5a6080;font-size:11px;text-align:center;padding:8px">هنوز پیامی نیست</div>';
+    return;
+  }
+  el.innerHTML = messages.map(function(m){
+    var isAdmin = m.role === 'admin';
+    var bg = isAdmin ? '#1a2a3a' : '#1e2235';
+    var nameColor = isAdmin ? '#c084fc' : '#4ade80';
+    return '<div style="background:'+bg+';border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+      + '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+      + '<span style="font-size:11px;color:'+nameColor+';font-weight:600">'+(isAdmin?'👑 ':'')+m.user+'</span>'
+      + '<span style="font-size:10px;color:#5a6080">'+m.time+'</span>'
+      + '</div>'
+      + '<div style="font-size:12px;color:#e2e4f0">'+m.text+'</div>'
+      + '</div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function submitMessageInChange(changeId){
+  var input = document.getElementById('msgInput_'+changeId);
+  if(!input || !input.value.trim()) return;
+  var role = canDo('users') ? 'admin' : 'operator';
+  sendChangeMessage(changeId, currentUser.user, role, input.value.trim());
+  input.value = '';
 }
 </script>
 </body>
