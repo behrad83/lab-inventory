@@ -427,7 +427,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycby2BKTTSX6rCGNUC3bxan1z5MjPvpg47xSkykNgaRSGEaURQhJVU5zHzUFDpektuzkO/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyYt0DAEQxpuKaCzUVCqG6tRJnjKFxf8KE6T77se9ceVf6cxlojgSytcGp_6P6vUH6c/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -545,7 +545,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycby2BKTTSX6rCGNUC3bxan1z5MjPvpg47xSkykNgaRSGEaURQhJVU5zHzUFDpektuzkO/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyYt0DAEQxpuKaCzUVCqG6tRJnjKFxf8KE6T77se9ceVf6cxlojgSytcGp_6P6vUH6c/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -783,7 +783,7 @@ function renderActiveUsers(){
       </div>`}
     </div>`;
   }).join('');
-  autoLoadMessages(myChanges);
+  autoLoadMessages(visibleChanges);
 }
 function changeUserRole(username, role){
   callSheet('updateUserRole',{user:username,role:role},function(){
@@ -2016,7 +2016,18 @@ function renderPendingChanges(){
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#5a6080">📭 هیچ درخواستی وجود ندارد</div>';
     return;
   }
-  el.innerHTML = pendingChanges.map(function(p){
+  // هدر انتخاب دسته‌جمعی
+  var bulkHeader = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9aa3c2;cursor:pointer">'
+    + '<input type="checkbox" id="selectAllChanges" onchange="toggleSelectAllChanges(this)"> انتخاب همه</label>'
+    + '<div id="bulkChangeBar" style="display:none;gap:6px;align-items:center">'
+    + '<button class="btn btn-ghost btn-sm" onclick="bulkArchiveChanges()">📁 بایگانی انتخاب‌شده</button>'
+    + '<button class="btn btn-ghost btn-sm" style="color:#f87171" onclick="bulkDeleteChanges()">🗑️ حذف انتخاب‌شده</button>'
+    + '<span id="bulkChangeCount" style="font-size:12px;color:#5a6080"></span>'
+    + '</div>'
+    + '</div>';
+
+  el.innerHTML = bulkHeader + pendingChanges.map(function(p){
     var data = {};
     try {
       var rawData = p.data || '{}';
@@ -2041,7 +2052,11 @@ function renderPendingChanges(){
 
     var isPending = status === 'pending';
 
-    return '<div style="background:#0b0d14;border:1px solid '+(isPending?'#2a2f45':'#1a1d2e')+';border-radius:12px;padding:16px;margin-bottom:12px">'
+    return '<div id="chgCard_'+p.id+'" style="background:#0b0d14;border:1px solid '+(isPending?'#2a2f45':'#1a1d2e')+';border-radius:12px;padding:16px;margin-bottom:12px">'
+      + '<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">'
+      + '<input type="checkbox" class="chg-cb" value="'+p.id+'" onchange="updateBulkChangeBar()">'
+      + '<span style="font-size:11px;color:#5a6080">انتخاب این درخواست</span>'
+      + '</label>'
 
       // هدر
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
@@ -2215,7 +2230,10 @@ function renderMyChanges(){
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#5a6080">📭 هیچ درخواستی ارسال نشده</div>';
     return;
   }
-  el.innerHTML = myChanges.map(function(c){
+  // فیلتر - اوپراتور درخواست‌های بایگانی/حذف‌شده رو نمیبینه
+  var visibleChanges = myChanges.filter(function(c){ return c.status !== 'archived'; });
+  
+  el.innerHTML = visibleChanges.map(function(c){
     var data = {};
     try { data = JSON.parse(c.data); } catch(e) {}
     var typeLabel = c.type==='add'?'➕ افزودن': c.type==='delete'?'🗑️ حذف':'✏️ ویرایش';
@@ -2241,7 +2259,7 @@ function renderMyChanges(){
       + '</div>'
       + '</div>';
   }).join('');
-  autoLoadMessages(myChanges);
+  autoLoadMessages(visibleChanges);
 }
 
 function buildChangeDetail(type, data){
@@ -2418,15 +2436,50 @@ function renderArchivedChanges(){
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#5a6080">📭 بایگانی خالی است</div>';
     return;
   }
-  el.innerHTML = archivedChanges.map(function(p){
+
+  // هدر انتخاب دسته‌جمعی
+  var bulkHeader = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
+    + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#9aa3c2;cursor:pointer">'
+    + '<input type="checkbox" id="selectAllChanges" onchange="toggleSelectAllChanges(this)"> انتخاب همه</label>'
+    + '<div id="bulkChangeBar" style="display:none;gap:6px;align-items:center">'
+    + '<button class="btn btn-ghost btn-sm" style="color:#f87171" onclick="bulkDeleteChanges()">🗑️ حذف انتخاب‌شده</button>'
+    + '<span id="bulkChangeCount" style="font-size:12px;color:#5a6080"></span>'
+    + '</div>'
+    + '</div>';
+
+  el.innerHTML = bulkHeader + archivedChanges.map(function(p){
     var data = {};
     try { data = JSON.parse(p.data||'{}'); } catch(e){}
+    var msgs = [];
+    try { msgs = JSON.parse(p.messages||'[]'); } catch(e){}
     var typeLabel = p.type==='add'?'➕ افزودن': p.type==='delete'?'🗑️ حذف':'✏️ ویرایش';
     var origStatus = p.status;
     var statusLabel = origStatus==='approved'?'✅ تأیید شده': origStatus==='rejected'?'❌ رد شده':'📁 بایگانی';
     var statusColor = origStatus==='approved'?'#4ade80': origStatus==='rejected'?'#f87171':'#9aa3c2';
 
-    return '<div style="background:#0b0d14;border:1px solid #1a1d2e;border-radius:10px;padding:12px;margin-bottom:8px;opacity:0.8">'
+    // ساخت گفتگو
+    var msgHtml = '';
+    if(msgs.length){
+      msgHtml = '<div style="margin-top:10px">'
+        + '<div style="font-size:11px;color:#5a6080;margin-bottom:6px">💬 گفتگو ('+msgs.length+' پیام)</div>'
+        + msgs.map(function(m){
+            var isAdmin = m.role==='admin';
+            return '<div style="background:'+(isAdmin?'#1a2a3a':'#1e2235')+';border-radius:6px;padding:6px 10px;margin-bottom:4px">'
+              + '<div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+              + '<span style="font-size:11px;color:'+(isAdmin?'#c084fc':'#4ade80')+';font-weight:600">'+(isAdmin?'👑 ':'')+m.user+'</span>'
+              + '<span style="font-size:10px;color:#5a6080">'+m.time+'</span>'
+              + '</div>'
+              + '<div style="font-size:12px;color:#e2e4f0">'+m.text+'</div>'
+              + '</div>';
+          }).join('')
+        + '</div>';
+    }
+
+    return '<div style="background:#0b0d14;border:1px solid #1a1d2e;border-radius:10px;padding:14px;margin-bottom:10px">'
+      + '<label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer">'
+      + '<input type="checkbox" class="chg-cb" value="'+p.id+'" onchange="updateBulkChangeBar()">'
+      + '<span style="font-size:11px;color:#5a6080">انتخاب</span>'
+      + '</label>'
       + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">'
       + '<div style="display:flex;gap:6px;align-items:center">'
       + '<span style="font-size:12px;color:#5a6080">'+typeLabel+'</span>'
@@ -2435,8 +2488,12 @@ function renderArchivedChanges(){
       + '<span style="background:'+statusColor+'22;color:'+statusColor+';padding:2px 8px;border-radius:6px;font-size:11px">'+statusLabel+'</span>'
       + '</div>'
       + '<div style="font-size:11px;color:#5a6080;margin-top:4px">از: '+p.user+' | '+p.date+'</div>'
-      + '<div style="display:flex;gap:6px;margin-top:8px">'
-      + '<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="deleteChange(&quot;'+p.id+'&quot;)">🗑️ حذف دائم</button>'
+      + '<div style="margin-top:8px;background:#1e2235;border-radius:8px;padding:10px;font-size:12px">'
+      + buildChangeDetail(p.type, data)
+      + '</div>'
+      + msgHtml
+      + '<div style="display:flex;gap:6px;margin-top:10px">'
+      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#f87171" onclick="deleteChange(&quot;'+p.id+'&quot;)">🗑️ حذف دائم</button>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -2464,6 +2521,63 @@ function deleteChange(id){
       else renderArchivedChanges();
       showToast('🗑️ حذف شد');
     }
+  });
+}
+
+// ── انتخاب دسته‌جمعی درخواست‌ها ──
+
+function toggleSelectAllChanges(cb){
+  document.querySelectorAll('.chg-cb').forEach(function(el){ el.checked = cb.checked; });
+  updateBulkChangeBar();
+}
+
+function updateBulkChangeBar(){
+  var selected = document.querySelectorAll('.chg-cb:checked');
+  var bar = document.getElementById('bulkChangeBar');
+  var count = document.getElementById('bulkChangeCount');
+  if(bar) bar.style.display = selected.length > 0 ? 'flex' : 'none';
+  if(count) count.textContent = selected.length + ' درخواست انتخاب شده';
+}
+
+function getSelectedChangeIds(){
+  return Array.from(document.querySelectorAll('.chg-cb:checked')).map(function(el){ return el.value; });
+}
+
+function bulkArchiveChanges(){
+  var ids = getSelectedChangeIds();
+  if(!ids.length) return;
+  if(!confirm('بایگانی '+ids.length+' درخواست؟')) return;
+  var done = 0;
+  ids.forEach(function(id){
+    callSheet('archiveChange', {id:id}, function(res){
+      done++;
+      if(done === ids.length){
+        pendingChanges = pendingChanges.filter(function(p){ return ids.indexOf(p.id)===-1; });
+        updateNotifBadge();
+        renderPendingChanges();
+        showToast('📁 '+ids.length+' درخواست بایگانی شد');
+      }
+    });
+  });
+}
+
+function bulkDeleteChanges(){
+  var ids = getSelectedChangeIds();
+  if(!ids.length) return;
+  if(!confirm('حذف دائم '+ids.length+' درخواست؟')) return;
+  var done = 0;
+  ids.forEach(function(id){
+    callSheet('deleteChange', {id:id}, function(res){
+      done++;
+      if(done === ids.length){
+        pendingChanges = pendingChanges.filter(function(p){ return ids.indexOf(p.id)===-1; });
+        archivedChanges = archivedChanges.filter(function(p){ return ids.indexOf(p.id)===-1; });
+        updateNotifBadge();
+        if(currentNotifTab==='active') renderPendingChanges();
+        else renderArchivedChanges();
+        showToast('🗑️ '+ids.length+' درخواست حذف شد');
+      }
+    });
   });
 }
 </script>
