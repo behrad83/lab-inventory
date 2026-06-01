@@ -152,7 +152,7 @@ tr:hover td{background:#0e1018}
     <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
 
     <div class="nav" onclick="gotoView('users',this)"><span class="nav-icon">👥</span><span>کاربران</span></div>
-    <div class="nav" id="notifNav" onclick="gotoView('notif',this)"><span class="nav-icon">🔔</span><span>اعلان‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
+    <div class="nav" id="notifNav" onclick="gotoView('notif',this)"><span class="nav-icon">📋</span><span>درخواست‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
     <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
     <div class="sidebar-bottom">
       <div class="user-chip"><div class="user-dot"></div><span id="userLabel">admin</span></div>
@@ -359,7 +359,7 @@ tr:hover td{background:#0e1018}
     <!-- ── NOTIFICATIONS ── -->
     <div id="view-notif" class="hidden">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="page-title" id="notifPageTitle" style="margin:0">🔔 اعلان‌ها</div>
+        <div class="page-title" id="notifPageTitle" style="margin:0">📋 مدیریت درخواست‌ها</div>
         <button class="btn btn-ghost btn-sm" onclick="refreshNotif()">🔄 بروزرسانی</button>
       </div>
       <!-- تب‌ها فقط برای ادمین -->
@@ -873,7 +873,7 @@ function gotoView(v,el){
     var notifTitle = document.getElementById('notifPageTitle');
     var adminTabs = document.getElementById('adminNotifTabs');
     if(canDo('users')){
-      if(notifTitle) notifTitle.textContent = '🔔 مدیریت درخواست‌ها';
+      if(notifTitle) notifTitle.textContent = '📋 مدیریت درخواست‌ها';
       if(adminTabs) adminTabs.style.display = 'block';
       currentNotifTab = 'active';
       var btn = document.getElementById('tab_active');
@@ -882,7 +882,7 @@ function gotoView(v,el){
       if(btn2){ btn2.style.background='transparent'; btn2.style.color='#5a6080'; }
       loadPendingChanges();
     } else {
-      if(notifTitle) notifTitle.textContent = '🔔 درخواست‌های من';
+      if(notifTitle) notifTitle.textContent = '📋 درخواست‌های من';
       if(adminTabs) adminTabs.style.display = 'none';
       loadMyChanges();
       startMyChangesRefresh();
