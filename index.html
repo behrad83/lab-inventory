@@ -1172,40 +1172,37 @@ function saveEdit(id){
 
   if(!name){alert('نام کالا الزامی است');return;}
 
-  items=items.map(function(i){
-    if(i.id!==id) return i;
-    return Object.assign({},i,{name,desc,shelf,row,qty,minQty,cat});
-  });
-  saveItems();
-
-  // sync to sheet - delete old and add new
   const item=items.find(function(i){return i.id===id;});
-  callSheet('delete',{id:id},function(){
-    callSheet('add',item,function(){});
-  });
+  if(!item)return;
+  const updated = Object.assign({},item,{name,desc,shelf,row,qty,minQty,cat});
 
-  // ذخیره لینک عکس جدید
+  // بررسی لینک عکس جدید
   const imgUrlInput = document.getElementById('edit-image-url-'+id);
-  if(imgUrlInput){
-    const newImgUrl = convertDriveUrl(imgUrlInput.value.trim());
-    if(newImgUrl !== (item.image||'')){
-      items=items.map(function(i){return i.id===id?Object.assign({},i,{image:newImgUrl}):i;});
-      saveItems();
-      callSheet('updateImage',{id:id,image:newImgUrl},function(){});
-    }
+  if(imgUrlInput && imgUrlInput.value.trim()){
+    updated.image = imgUrlInput.value.trim();
   }
 
-  closeDetail();
-  renderItems();
-  renderDashboard();
-  
-  // نمایش پیام موفقیت
-  const msg=document.createElement('div');
-  msg.style.cssText='position:fixed;bottom:20px;right:20px;background:linear-gradient(135deg,#22c55e,#16a34a);color:white;padding:12px 20px;border-radius:10px;font-size:13px;z-index:999;font-family:Vazirmatn,Tahoma';
-  msg.textContent='✅ تغییرات ذخیره شد';
-  document.body.appendChild(msg);
-  setTimeout(function(){msg.remove();},3000);
+  if(currentUser && currentUser.role==='admin'){
+    // ادمین مستقیم اعمال می‌کنه
+    items=items.map(function(i){ return i.id!==id?i:updated; });
+    saveItems();
+    callSheet('delete',{id:id},function(){
+      callSheet('add',updated,function(){});
+    });
+    if(updated.image !== item.image){
+      callSheet('updateImage',{id:id,image:updated.image},function(){});
+    }
+    closeDetail();
+    renderItems();
+    renderDashboard();
+    showToast('✅ تغییرات ذخیره شد');
+  } else {
+    // operator درخواست می‌فرسته
+    submitChange('edit', id, updated);
+    closeDetail();
+  }
 }
+
 
 function downloadQRById(id,code){
   const el=document.getElementById('modal-qr');
@@ -1230,17 +1227,30 @@ function downloadQRById(id,code){
 function changeQty(id,dir){
   const amt=parseInt(prompt(dir>0?'چند عدد اضافه شد؟':'چند عدد کم شد؟')||'0');
   if(!amt||isNaN(amt)||amt<=0)return;
-  items=items.map(function(i){
-    return i.id!==id?i:Object.assign({},i,{qty:Math.max(0,i.qty+dir*amt)});
-  });
-  saveItems();
   const item=items.find(function(i){return i.id===id;});
-  callSheet('delete',{id:id},function(){
-    callSheet('add',item,function(){});
-  });
-  closeDetail();
-  openDetail(id);
-  renderDashboard();
+  if(!item)return;
+
+  if(currentUser && currentUser.role==='admin'){
+    // ادمین مستقیم اعمال می‌کنه
+    items=items.map(function(i){
+      return i.id!==id?i:Object.assign({},i,{qty:Math.max(0,i.qty+dir*amt)});
+    });
+    saveItems();
+    const updated=items.find(function(i){return i.id===id;});
+    callSheet('delete',{id:id},function(){
+      callSheet('add',updated,function(){});
+    });
+    closeDetail();
+    openDetail(id);
+    renderDashboard();
+  } else {
+    // operator درخواست می‌فرسته
+    const newQty = Math.max(0, item.qty + dir*amt);
+    const changeData = Object.assign({}, item, {qty: newQty});
+    submitChange('edit', id, changeData);
+    showToast((dir>0?'درخواست افزایش':'درخواست کاهش')+' موجودی ارسال شد — منتظر تأیید ادمین');
+    closeDetail();
+  }
 }
 
 function closeDetail(){document.getElementById('modal-detail').classList.add('hidden')}
@@ -2008,19 +2018,60 @@ function rejectPendingChange(id){
 // تابع ارسال درخواست تغییر برای operator
 function submitChange(type, itemId, data){
   var changeId = 'chg_' + Date.now();
-  var payload = {
+  // داده رو خلاصه کن - فقط فیلدهای مهم
+  var summary = {
+    id: data.id||'',
+    code: data.code||'',
+    name: data.name||'',
+    cat: data.cat||'',
+    qty: data.qty||0,
+    unit: data.unit||'',
+    desc: data.desc||'',
+    shelf: data.shelf||'',
+    row: data.row||'',
+    minQty: data.minQty||0,
+    date: data.date||'',
+    image: data.image||''
+  };
+  var dataStr = JSON.stringify(summary);
+  
+  var url = loadSheetUrl();
+  if(!url){ showToast('خطا: URL تنظیم نشده'); return; }
+  
+  var cbName = 'chgCb_' + Date.now();
+  var params = new URLSearchParams({
+    action: 'addPending',
+    callback: cbName,
     id: changeId,
     type: type,
     itemId: itemId || '',
-    data: JSON.stringify(data),
     user: currentUser ? currentUser.user : 'unknown',
-    date: new Date().toLocaleDateString('fa-IR')
-  };
-  callSheet('addPending', payload, function(res){
-    if(res && res.status==='ok'){
-      showToast('درخواست ارسال شد — منتظر تأیید ادمین');
-    }
+    date: new Date().toLocaleDateString('fa-IR'),
+    data: dataStr
   });
+  
+  window[cbName] = function(res){
+    delete window[cbName];
+    var s = document.getElementById(cbName); if(s) s.remove();
+    if(res && res.status==='ok'){
+      showToast('✅ درخواست ارسال شد — منتظر تأیید ادمین');
+    } else {
+      showToast('❌ خطا در ارسال درخواست');
+      console.error('submitChange error:', JSON.stringify(res));
+    }
+  };
+  
+  var script = document.createElement('script');
+  script.id = cbName;
+  script.src = url + '?' + params.toString();
+  script.onerror = function(){ 
+    delete window[cbName]; this.remove();
+    showToast('❌ خطا در اتصال');
+  };
+  setTimeout(function(){
+    if(window[cbName]){ delete window[cbName]; showToast('⏱ timeout در ارسال'); }
+  }, 15000);
+  document.head.appendChild(script);
 }
 
 function showToast(msg){
