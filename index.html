@@ -2010,12 +2010,7 @@ function renderPendingChanges(){
       + '</div>'
       + '</div>'
       + '<div style="margin-top:12px;background:#1e2235;border-radius:8px;padding:10px;font-size:12px">'
-      + (data.name ? '<div><span style="color:#5a6080">نام: </span><span style="color:#e2e4f0">'+data.name+'</span></div>' : '')
-      + (data.code ? '<div><span style="color:#5a6080">کد: </span><span style="color:#60a5fa;font-family:monospace">'+data.code+'</span></div>' : '')
-      + (data.cat  ? '<div><span style="color:#5a6080">دسته: </span><span style="color:#e2e4f0">'+data.cat+'</span></div>' : '')
-      + (data.qty  ? '<div><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+data.qty+' '+(data.unit||'')+'</span></div>' : '')
-      + (data.desc ? '<div><span style="color:#5a6080">توضیح: </span><span style="color:#e2e4f0">'+data.desc+'</span></div>' : '')
-      + (p.type==='delete' ? '<div style="color:#f87171">کالا با شناسه '+p.itemId+' حذف خواهد شد</div>' : '')
+      + buildChangeDetail(p.type, data)
       + '</div>'
       + '<div style="display:flex;gap:8px;margin-top:12px">'
       + '<button class="btn btn-primary btn-sm" onclick="approvePendingChange(&quot;'+p.id+'&quot;)">✅ تأیید</button>'
@@ -2049,20 +2044,29 @@ function rejectPendingChange(id){
 // تابع ارسال درخواست تغییر برای operator
 function submitChange(type, itemId, data){
   var changeId = 'chg_' + Date.now();
-  // داده رو خلاصه کن - فقط فیلدهای مهم
+  // پیدا کردن داده اصلی کالا (قبل از تغییر)
+  var original = items.find(function(i){ return i.id === itemId; }) || null;
+  
   var summary = {
     id: data.id||'',
     code: data.code||'',
     name: data.name||'',
     cat: data.cat||'',
-    qty: data.qty||0,
+    qty: data.qty!==undefined ? data.qty : 0,
     unit: data.unit||'',
     desc: data.desc||'',
     shelf: data.shelf||'',
     row: data.row||'',
     minQty: data.minQty||0,
     date: data.date||'',
-    image: data.image||''
+    image: data.image||'',
+    // داده اصلی برای مقایسه
+    _orig_qty: original ? original.qty : null,
+    _orig_name: original ? original.name : null,
+    _orig_cat: original ? original.cat : null,
+    _orig_shelf: original ? original.shelf : null,
+    _orig_row: original ? original.row : null,
+    _orig_desc: original ? original.desc : null
   };
   var dataStr = JSON.stringify(summary);
   
@@ -2145,6 +2149,76 @@ function renderMyChanges(){
       + (data.qty!==undefined ? '<div style="margin-top:4px;font-size:12px"><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+data.qty+' '+(data.unit||'')+'</span></div>' : '')
       + '</div>';
   }).join('');
+}
+
+function buildChangeDetail(type, data){
+  var rows = '';
+
+  if(type === 'delete'){
+    rows += '<div style="color:#f87171;font-weight:600">🗑️ این کالا حذف خواهد شد</div>';
+    rows += '<div style="margin-top:6px"><span style="color:#5a6080">نام: </span><span style="color:#e2e4f0">'+(data.name||'')+'</span></div>';
+    rows += '<div><span style="color:#5a6080">کد: </span><span style="color:#60a5fa;font-family:monospace">'+(data.code||'')+'</span></div>';
+    rows += '<div><span style="color:#5a6080">موجودی فعلی: </span><span style="color:#f87171">'+(data.qty||0)+' '+(data.unit||'')+'</span></div>';
+    return rows;
+  }
+
+  if(type === 'add'){
+    rows += '<div style="color:#4ade80;font-weight:600;margin-bottom:6px">➕ کالای جدید</div>';
+    rows += '<div><span style="color:#5a6080">نام: </span><span style="color:#e2e4f0">'+(data.name||'')+'</span></div>';
+    rows += '<div><span style="color:#5a6080">کد: </span><span style="color:#60a5fa;font-family:monospace">'+(data.code||'')+'</span></div>';
+    rows += '<div><span style="color:#5a6080">دسته: </span><span style="color:#e2e4f0">'+(data.cat||'')+'</span></div>';
+    rows += '<div><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+(data.qty||0)+' '+(data.unit||'')+'</span></div>';
+    if(data.desc) rows += '<div><span style="color:#5a6080">توضیح: </span><span style="color:#e2e4f0">'+data.desc+'</span></div>';
+    if(data.shelf && data.shelf!=='-') rows += '<div><span style="color:#5a6080">قفسه: </span><span style="color:#e2e4f0">'+data.shelf+' / ردیف '+data.row+'</span></div>';
+    return rows;
+  }
+
+  // edit - مقایسه قبل و بعد
+  rows += '<div style="color:#60a5fa;font-weight:600;margin-bottom:8px">✏️ تغییرات درخواستی</div>';
+  
+  // نام
+  rows += '<div><span style="color:#5a6080">کالا: </span><span style="color:#e2e4f0;font-weight:600">'+(data.name||'')+'</span>';
+  if(data.code) rows += ' <span style="color:#60a5fa;font-family:monospace;font-size:11px">('+data.code+')</span>';
+  rows += '</div>';
+
+  // موجودی - مهم‌ترین بخش
+  if(data._orig_qty !== null && data._orig_qty !== undefined){
+    var origQty = parseInt(data._orig_qty)||0;
+    var newQty = parseInt(data.qty)||0;
+    var diff = newQty - origQty;
+    var diffStr = diff > 0 ? '(+'+diff+')' : diff < 0 ? '('+diff+')' : '(بدون تغییر)';
+    var diffColor = diff > 0 ? '#4ade80' : diff < 0 ? '#f87171' : '#9aa3c2';
+    rows += '<div style="margin-top:8px;padding:8px;background:#0b0d14;border-radius:8px">';
+    rows += '<div style="font-size:11px;color:#5a6080;margin-bottom:4px">موجودی</div>';
+    rows += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+    rows += '<span style="color:#9aa3c2">'+origQty+' '+(data.unit||'')+'</span>';
+    rows += '<span style="color:#5a6080">←</span>';
+    rows += '<span style="color:'+diffColor+';font-weight:700;font-size:15px">'+newQty+' '+(data.unit||'')+'</span>';
+    rows += '<span style="color:'+diffColor+';font-size:12px;background:'+diffColor+'22;padding:2px 8px;border-radius:6px">'+diffStr+'</span>';
+    rows += '</div></div>';
+  }
+
+  // سایر تغییرات
+  var changes = [];
+  if(data._orig_name !== null && data.name !== data._orig_name) changes.push({label:'نام', old:data._orig_name, new_:data.name});
+  if(data._orig_cat !== null && data.cat !== data._orig_cat) changes.push({label:'دسته', old:data._orig_cat, new_:data.cat});
+  if(data._orig_shelf !== null && data.shelf !== data._orig_shelf) changes.push({label:'قفسه', old:data._orig_shelf, new_:data.shelf});
+  if(data._orig_desc !== null && data.desc !== data._orig_desc) changes.push({label:'توضیح', old:data._orig_desc, new_:data.desc});
+
+  if(changes.length){
+    rows += '<div style="margin-top:8px">';
+    changes.forEach(function(c){
+      rows += '<div style="font-size:12px;margin-top:4px">';
+      rows += '<span style="color:#5a6080">'+c.label+': </span>';
+      rows += '<span style="color:#9aa3c2;text-decoration:line-through">'+c.old+'</span>';
+      rows += '<span style="color:#5a6080"> → </span>';
+      rows += '<span style="color:#e2e4f0">'+c.new_+'</span>';
+      rows += '</div>';
+    });
+    rows += '</div>';
+  }
+
+  return rows;
 }
 </script>
 </body>
