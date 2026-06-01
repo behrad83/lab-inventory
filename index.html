@@ -1977,12 +1977,16 @@ function loadPendingChanges(){
   var el = document.getElementById('pendingChangesList');
   if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#5a6080">⏳ در حال بارگذاری...</div>';
   callSheet('getPendingChanges', {t: Date.now()}, function(data){
+    console.log('[Notif] data received:', typeof data, Array.isArray(data), JSON.stringify(data).slice(0,200));
     if(Array.isArray(data)){
       pendingChanges = data;
       updateNotifBadge();
       renderPendingChanges();
+    } else if(data && data.error){
+      if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171">❌ '+data.error+'</div>';
     } else {
-      if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171">❌ خطا در بارگذاری</div>';
+      // شاید داده درست باشه ولی array نباشه
+      if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171">❌ داده نامعتبر: '+JSON.stringify(data).slice(0,100)+'</div>';
     }
   });
 }
