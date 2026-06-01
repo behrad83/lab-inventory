@@ -687,7 +687,7 @@ function callSheet(action,params,callback){
 function loadPendingFromSheet(){
   callSheet('getPending',{t:Date.now()},function(data){
     if(Array.isArray(data)){
-      PENDING=data.filter(function(d){return d.id&&String(d.approved)!=='true';});
+      PENDING=data.filter(function(d){return d.id;});
       savePending();
       renderPending();
       renderActiveUsers();
