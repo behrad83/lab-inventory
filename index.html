@@ -2007,12 +2007,15 @@ function renderPendingChanges(){
     var statusLabel = status==='pending'?'⏳ در انتظار': status==='approved'?'✅ تأیید شده':'❌ رد شده';
     var statusColor = status==='pending'?'#f59e0b': status==='approved'?'#4ade80':'#f87171';
 
-    // پیدا کردن عکس کالا
+    // پیدا کردن کالا - با چند روش مختلف
     var itemImg = '';
     var itemObj = null;
-    if(p.itemId) itemObj = items.find(function(i){ return i.id===p.itemId; });
-    if(!itemObj && data.id) itemObj = items.find(function(i){ return i.id===data.id; });
+    if(p.itemId) itemObj = items.find(function(i){ return String(i.id)===String(p.itemId); });
+    if(!itemObj && data.id) itemObj = items.find(function(i){ return String(i.id)===String(data.id); });
+    if(!itemObj && data.code) itemObj = items.find(function(i){ return i.code===data.code; });
     if(itemObj && itemObj.image) itemImg = itemObj.image;
+    // اگه کالا add هست عکس از data میاد
+    if(!itemImg && data.image) itemImg = data.image;
 
     var isPending = status === 'pending';
 
@@ -2045,14 +2048,15 @@ function renderPendingChanges(){
 
       // دکمه‌ها فقط برای pending
       + (isPending
-        ? '<div style="margin-bottom:10px">'
-          + '<input id="adminMsg_'+p.id+'" type="text" class="inp" placeholder="پیام به اپراتور (اختیاری)..." style="font-size:12px;padding:7px 10px;margin-bottom:8px">'
+        ? '<div style="margin-top:4px">'
+          + '<label style="font-size:12px;color:#5a6080;display:block;margin-bottom:4px">💬 پیام به اپراتور (اختیاری):</label>'
+          + '<input id="adminMsg_'+p.id+'" type="text" class="inp" placeholder="مثلاً: موجودی تأیید شد، لطفاً قفسه را بررسی کنید..." style="font-size:12px;padding:8px 10px;margin-bottom:10px;width:100%;box-sizing:border-box">'
           + '<div style="display:flex;gap:8px">'
           + '<button class="btn btn-primary btn-sm" onclick="approvePendingChange(&quot;'+p.id+'&quot;)">✅ تأیید</button>'
           + '<button class="btn btn-danger btn-sm" onclick="rejectPendingChange(&quot;'+p.id+'&quot;)">❌ رد</button>'
           + '</div>'
           + '</div>'
-        : '')
+        : '<div style="margin-top:8px;font-size:11px;color:#5a6080">برای ارسال پیام یا تغییر وضعیت، درخواست را باز کنید</div>')
       + '</div>';
   }).join('');
 }
