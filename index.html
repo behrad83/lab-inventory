@@ -2325,6 +2325,70 @@ function renderMyChanges(){
 
   autoLoadMessages(visibleChanges);
 }
+
+function buildChangeDetail(type, data){
+  var rows = '';
+  if(!data) return rows;
+
+  if(type === 'delete'){
+    rows += '<div style="color:#f87171;font-weight:600;margin-bottom:6px">🗑️ این کالا حذف خواهد شد</div>';
+    if(data.name) rows += '<div><span style="color:#5a6080">نام: </span><span style="color:#e2e4f0">'+data.name+'</span></div>';
+    if(data.code) rows += '<div><span style="color:#5a6080">کد: </span><span style="color:#60a5fa;font-family:monospace">'+data.code+'</span></div>';
+    rows += '<div><span style="color:#5a6080">موجودی فعلی: </span><span style="color:#f87171">'+(data.qty||0)+' '+(data.unit||'')+'</span></div>';
+    return rows;
+  }
+
+  if(type === 'add'){
+    rows += '<div style="color:#4ade80;font-weight:600;margin-bottom:6px">➕ کالای جدید</div>';
+    if(data.name) rows += '<div><span style="color:#5a6080">نام: </span><span style="color:#e2e4f0">'+data.name+'</span></div>';
+    if(data.code) rows += '<div><span style="color:#5a6080">کد: </span><span style="color:#60a5fa;font-family:monospace">'+data.code+'</span></div>';
+    if(data.cat) rows += '<div><span style="color:#5a6080">دسته: </span><span style="color:#e2e4f0">'+data.cat+'</span></div>';
+    rows += '<div><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+(data.qty||0)+' '+(data.unit||'')+'</span></div>';
+    if(data.desc) rows += '<div><span style="color:#5a6080">توضیح: </span><span style="color:#e2e4f0">'+data.desc+'</span></div>';
+    if(data.shelf && data.shelf!=='-') rows += '<div><span style="color:#5a6080">قفسه: </span><span style="color:#e2e4f0">'+data.shelf+' / ردیف '+data.row+'</span></div>';
+    return rows;
+  }
+
+  // edit
+  rows += '<div style="color:#60a5fa;font-weight:600;margin-bottom:6px">✏️ تغییرات درخواستی</div>';
+  if(data.name) rows += '<div><span style="color:#5a6080">کالا: </span><span style="color:#e2e4f0;font-weight:600">'+data.name+'</span>'+(data.code?' <span style="color:#60a5fa;font-family:monospace;font-size:11px">('+data.code+')</span>':'')+'</div>';
+
+  if(data._orig_qty !== null && data._orig_qty !== undefined && data._orig_qty !== ''){
+    var origQty = parseInt(data._orig_qty)||0;
+    var newQty = parseInt(data.qty)||0;
+    var diff = newQty - origQty;
+    var diffColor = diff>0?'#4ade80':diff<0?'#f87171':'#9aa3c2';
+    var diffStr = diff>0?'(+'+diff+')':diff<0?'('+diff+')':'(بدون تغییر)';
+    rows += '<div style="margin-top:8px;padding:8px;background:#0b0d14;border-radius:8px">';
+    rows += '<div style="font-size:11px;color:#5a6080;margin-bottom:4px">موجودی</div>';
+    rows += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+    rows += '<span style="color:#9aa3c2">'+origQty+' '+(data.unit||'')+'</span>';
+    rows += '<span style="color:#5a6080">←</span>';
+    rows += '<span style="color:'+diffColor+';font-weight:700;font-size:15px">'+newQty+' '+(data.unit||'')+'</span>';
+    rows += '<span style="color:'+diffColor+';font-size:12px;background:'+diffColor+'22;padding:2px 8px;border-radius:6px">'+diffStr+'</span>';
+    rows += '</div></div>';
+  }
+
+  var changes = [];
+  if(data._orig_name && data.name !== data._orig_name) changes.push({label:'نام', old:data._orig_name, new_:data.name});
+  if(data._orig_cat && data.cat !== data._orig_cat) changes.push({label:'دسته', old:data._orig_cat, new_:data.cat});
+  if(data._orig_shelf && data.shelf !== data._orig_shelf) changes.push({label:'قفسه', old:data._orig_shelf, new_:data.shelf});
+  if(data._orig_desc !== undefined && data.desc !== data._orig_desc) changes.push({label:'توضیح', old:data._orig_desc||'—', new_:data.desc||'—'});
+
+  if(changes.length){
+    rows += '<div style="margin-top:8px">';
+    changes.forEach(function(c){
+      rows += '<div style="font-size:12px;margin-top:4px">';
+      rows += '<span style="color:#5a6080">'+c.label+': </span>';
+      rows += '<span style="color:#9aa3c2;text-decoration:line-through">'+c.old+'</span>';
+      rows += '<span style="color:#5a6080"> → </span>';
+      rows += '<span style="color:#e2e4f0">'+c.new_+'</span>';
+      rows += '</div>';
+    });
+    rows += '</div>';
+  }
+  return rows;
+}
 </script>
 </body>
 </html>
