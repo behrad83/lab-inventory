@@ -420,7 +420,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbwM0cSASu51IUoI9YnI9H6p_uhObcSBeKbwgAkKo84QC2qP5M2c1rdD1nqFHFUlWPe_/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbweWXVhJW9mgRKkDTCi1BKOlPgxT-A7Qay4P3oXVsC5VbaMWgIHmAFI7kgv7XKEXdgc/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -538,7 +538,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbwM0cSASu51IUoI9YnI9H6p_uhObcSBeKbwgAkKo84QC2qP5M2c1rdD1nqFHFUlWPe_/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbweWXVhJW9mgRKkDTCi1BKOlPgxT-A7Qay4P3oXVsC5VbaMWgIHmAFI7kgv7XKEXdgc/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -1987,67 +1987,96 @@ function updateNotifBadge(){
 }
 
 function renderPendingChanges(){
-  // اگه ادمین نیست، وضعیت درخواست‌های خودش رو نشون بده
   if(!canDo('users')){ renderMyChanges(); return; }
-  
   var el = document.getElementById('pendingChangesList');
   if(!el) return;
   if(!pendingChanges.length){
-    el.innerHTML = '<div style="text-align:center;padding:40px;color:#5a6080">📭 هیچ درخواست تغییری وجود ندارد</div>';
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#5a6080">📭 هیچ درخواستی وجود ندارد</div>';
     return;
   }
   el.innerHTML = pendingChanges.map(function(p){
     var data = {};
-    try { 
+    try {
       var rawData = p.data || '{}';
-      // گاهی Apps Script اضافه escape میکنه
-      if(typeof rawData === 'string'){
-        data = JSON.parse(rawData);
-      } else {
-        data = rawData;
-      }
-    } catch(e) { 
-      console.error('JSON parse error:', e, 'data:', p.data);
-      data = {name: p.data || '', qty: 0};
-    }
-    var typeLabel = p.type==='add'?'➕ افزودن کالا': p.type==='delete'?'🗑️ حذف کالا':'✏️ ویرایش کالا';
+      data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+    } catch(e) { data = {name: String(p.data||''), qty:0}; }
+
+    var status = p.status || 'pending';
+    var typeLabel = p.type==='add'?'➕ افزودن': p.type==='delete'?'🗑️ حذف':'✏️ ویرایش';
     var typeColor = p.type==='add'?'#4ade80': p.type==='delete'?'#f87171':'#60a5fa';
-    return '<div style="background:#0b0d14;border:1px solid #1a1d2e;border-radius:12px;padding:16px;margin-bottom:12px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">'
+    var statusLabel = status==='pending'?'⏳ در انتظار': status==='approved'?'✅ تأیید شده':'❌ رد شده';
+    var statusColor = status==='pending'?'#f59e0b': status==='approved'?'#4ade80':'#f87171';
+
+    // پیدا کردن عکس کالا
+    var itemImg = '';
+    var itemObj = null;
+    if(p.itemId) itemObj = items.find(function(i){ return i.id===p.itemId; });
+    if(!itemObj && data.id) itemObj = items.find(function(i){ return i.id===data.id; });
+    if(itemObj && itemObj.image) itemImg = itemObj.image;
+
+    var isPending = status === 'pending';
+
+    return '<div style="background:#0b0d14;border:1px solid '+(isPending?'#2a2f45':'#1a1d2e')+';border-radius:12px;padding:16px;margin-bottom:12px">'
+
+      // هدر
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px">'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      // آیکون کالا
+      + (itemImg
+          ? '<img src="'+itemImg+'" style="width:44px;height:44px;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid #2a2f45" onclick="openDetail(&quot;'+(itemObj?itemObj.id:'')+  '&quot;)" title="مشاهده پروفایل">'
+          : '<div style="width:44px;height:44px;background:#1e2235;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer" '+(itemObj?'onclick="openDetail(&quot;'+itemObj.id+'&quot;)"':'')+'>📦</div>')
       + '<div>'
-      + '<span style="background:'+typeColor+'22;color:'+typeColor+';padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600">'+typeLabel+'</span>'
-      + '<div style="margin-top:8px;font-size:13px"><span style="color:#5a6080">کاربر: </span><span style="color:#e2e4f0;font-weight:600">'+p.user+'</span></div>'
-      + '<div style="font-size:12px;color:#5a6080;margin-top:4px">'+p.date+'</div>'
+      + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
+      + '<span style="background:'+typeColor+'22;color:'+typeColor+';padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600">'+typeLabel+'</span>'
+      + '<span style="background:'+statusColor+'22;color:'+statusColor+';padding:2px 8px;border-radius:6px;font-size:11px">'+statusLabel+'</span>'
+      + '</div>'
+      + '<div style="margin-top:4px;font-size:13px"><span style="color:#5a6080">از: </span><span style="color:#e2e4f0;font-weight:600">'+p.user+'</span><span style="color:#5a6080;font-size:11px;margin-right:8px">'+p.date+'</span></div>'
       + '</div>'
       + '</div>'
-      + '<div style="margin-top:12px;background:#1e2235;border-radius:8px;padding:10px;font-size:12px">'
+      + '</div>'
+
+      // جزئیات تغییر
+      + '<div style="background:#1e2235;border-radius:8px;padding:12px;font-size:12px;margin-bottom:12px">'
       + buildChangeDetail(p.type, data)
       + '</div>'
-      + '<div style="display:flex;gap:8px;margin-top:12px">'
-      + '<button class="btn btn-primary btn-sm" onclick="approvePendingChange(&quot;'+p.id+'&quot;)">✅ تأیید</button>'
-      + '<button class="btn btn-danger btn-sm" onclick="rejectPendingChange(&quot;'+p.id+'&quot;)">❌ رد</button>'
-      + '</div>'
+
+      // پیام ادمین (اگه داره)
+      + (p.adminMsg ? '<div style="background:#1e2235;border-right:3px solid #4f8ef7;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#9aa3c2;margin-bottom:12px">💬 '+p.adminMsg+'</div>' : '')
+
+      // دکمه‌ها فقط برای pending
+      + (isPending
+        ? '<div style="margin-bottom:10px">'
+          + '<input id="adminMsg_'+p.id+'" type="text" class="inp" placeholder="پیام به اپراتور (اختیاری)..." style="font-size:12px;padding:7px 10px;margin-bottom:8px">'
+          + '<div style="display:flex;gap:8px">'
+          + '<button class="btn btn-primary btn-sm" onclick="approvePendingChange(&quot;'+p.id+'&quot;)">✅ تأیید</button>'
+          + '<button class="btn btn-danger btn-sm" onclick="rejectPendingChange(&quot;'+p.id+'&quot;)">❌ رد</button>'
+          + '</div>'
+          + '</div>'
+        : '')
       + '</div>';
   }).join('');
 }
 
+
 function approvePendingChange(id){
-  callSheet('approvePendingChange', {id:id}, function(res){
+  var msgEl = document.getElementById('adminMsg_'+id);
+  var adminMsg = msgEl ? msgEl.value.trim() : '';
+  callSheet('approvePendingChange', {id:id, adminMsg:adminMsg}, function(res){
     if(res && res.status==='ok'){
-      pendingChanges = pendingChanges.filter(function(p){ return p.id !== id; });
-      updateNotifBadge();
-      renderPendingChanges();
+      loadPendingChanges();
       loadFromSheet();
+      showToast('✅ درخواست تأیید شد');
     }
   });
 }
 
 function rejectPendingChange(id){
-  callSheet('rejectPendingChange', {id:id}, function(res){
+  var msgEl = document.getElementById('adminMsg_'+id);
+  var adminMsg = msgEl ? msgEl.value.trim() : '';
+  callSheet('rejectPendingChange', {id:id, adminMsg:adminMsg}, function(res){
     if(res && res.status==='ok'){
-      pendingChanges = pendingChanges.filter(function(p){ return p.id !== id; });
-      updateNotifBadge();
-      renderPendingChanges();
+      loadPendingChanges();
+      showToast('❌ درخواست رد شد');
     }
   });
 }
@@ -2158,6 +2187,7 @@ function renderMyChanges(){
       + '</div>'
       + '<div style="margin-top:8px;font-size:11px;color:#5a6080">'+c.date+'</div>'
       + (data.qty!==undefined ? '<div style="margin-top:4px;font-size:12px"><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+data.qty+' '+(data.unit||'')+'</span></div>' : '')
+      + (c.adminMsg ? '<div style="margin-top:6px;background:#1e2235;border-right:3px solid #4f8ef7;padding:6px 10px;border-radius:0 6px 6px 0;font-size:11px;color:#9aa3c2">💬 پیام ادمین: '+c.adminMsg+'</div>' : '')
       + '</div>';
   }).join('');
 }
