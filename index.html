@@ -783,7 +783,6 @@ function renderActiveUsers(){
       </div>`}
     </div>`;
   }).join('');
-  autoLoadMessages(visibleChanges);
 }
 function changeUserRole(username, role){
   callSheet('updateUserRole',{user:username,role:role},function(){
