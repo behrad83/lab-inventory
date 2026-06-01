@@ -1958,13 +1958,13 @@ var myChanges = [];
 
 function loadPendingChanges(){
   callSheet('getPendingChanges', {t: Date.now()}, function(data){
-    console.log('[Notif] pending changes:', JSON.stringify(data));
     if(Array.isArray(data)){
       pendingChanges = data;
       updateNotifBadge();
-      renderPendingChanges();
-    } else {
-      console.error('[Notif] invalid data:', data);
+      var notifView = document.getElementById('view-notif');
+      if(notifView && !notifView.classList.contains('hidden')){
+        renderPendingChanges();
+      }
     }
   });
 }
@@ -1976,7 +1976,9 @@ function loadMyChanges(){
     if(Array.isArray(data)){
       myChanges = data;
       updateNotifBadge();
-      if(document.getElementById('view-notif') && !document.getElementById('view-notif').classList.contains('hidden')){
+      // همیشه render کن تا پیام‌ها آپدیت بشن
+      var notifView = document.getElementById('view-notif');
+      if(notifView && !notifView.classList.contains('hidden')){
         renderMyChanges();
       }
     }
@@ -2221,6 +2223,7 @@ function renderMyChanges(){
       + '</div>'
       + '</div>';
   }).join('');
+  autoLoadMessages(myChanges);
 }
 
 function buildChangeDetail(type, data){
@@ -2304,8 +2307,10 @@ function sendChangeMessage(changeId, user, role, text){
     text: text.trim()
   }, function(res){
     if(res && res.status==='ok'){
-      // reload messages for this change
-      loadChangeMessages(changeId);
+      // reload messages
+      setTimeout(function(){ loadChangeMessages(changeId); }, 500);
+    } else {
+      showToast('❌ خطا در ارسال پیام');
     }
   });
 }
