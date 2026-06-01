@@ -1974,28 +1974,30 @@ var pendingChanges = [];
 var myChanges = [];
 
 function loadPendingChanges(){
+  var el = document.getElementById('pendingChangesList');
+  if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#5a6080">⏳ در حال بارگذاری...</div>';
   callSheet('getPendingChanges', {t: Date.now()}, function(data){
     if(Array.isArray(data)){
       pendingChanges = data;
       updateNotifBadge();
-      var notifView = document.getElementById('view-notif');
-      if(notifView && !notifView.classList.contains('hidden')){
-        renderPendingChanges();
-      }
+      renderPendingChanges();
+    } else {
+      if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171">❌ خطا در بارگذاری</div>';
     }
   });
 }
 
 function loadMyChanges(){
   if(!currentUser) return;
+  var el = document.getElementById('pendingChangesList');
+  if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#5a6080">⏳ در حال بارگذاری...</div>';
   callSheet('getMyChanges', {user: currentUser.user, t: Date.now()}, function(data){
     if(Array.isArray(data)){
       myChanges = data;
       updateNotifBadge();
-      var notifView = document.getElementById('view-notif');
-      if(notifView && !notifView.classList.contains('hidden')){
-        renderMyChanges();
-      }
+      renderMyChanges();
+    } else {
+      if(el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171">❌ خطا در بارگذاری</div>';
     }
   });
 }
