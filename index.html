@@ -1951,14 +1951,14 @@ var pendingChanges = [];
 var myChanges = [];
 
 function loadPendingChanges(){
-  // ادمین: بارگذاری درخواست‌های pending
   callSheet('getPendingChanges', {t: Date.now()}, function(data){
+    console.log('[Notif] pending changes:', JSON.stringify(data));
     if(Array.isArray(data)){
       pendingChanges = data;
       updateNotifBadge();
-      if(document.getElementById('view-notif') && !document.getElementById('view-notif').classList.contains('hidden')){
-        renderPendingChanges();
-      }
+      renderPendingChanges();
+    } else {
+      console.error('[Notif] invalid data:', data);
     }
   });
 }
@@ -1998,7 +1998,18 @@ function renderPendingChanges(){
   }
   el.innerHTML = pendingChanges.map(function(p){
     var data = {};
-    try { data = JSON.parse(p.data); } catch(e) {}
+    try { 
+      var rawData = p.data || '{}';
+      // گاهی Apps Script اضافه escape میکنه
+      if(typeof rawData === 'string'){
+        data = JSON.parse(rawData);
+      } else {
+        data = rawData;
+      }
+    } catch(e) { 
+      console.error('JSON parse error:', e, 'data:', p.data);
+      data = {name: p.data || '', qty: 0};
+    }
     var typeLabel = p.type==='add'?'➕ افزودن کالا': p.type==='delete'?'🗑️ حذف کالا':'✏️ ویرایش کالا';
     var typeColor = p.type==='add'?'#4ade80': p.type==='delete'?'#f87171':'#60a5fa';
     return '<div style="background:#0b0d14;border:1px solid #1a1d2e;border-radius:12px;padding:16px;margin-bottom:12px">'
