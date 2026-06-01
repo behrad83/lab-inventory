@@ -169,7 +169,7 @@ tr:hover td{background:#0e1018}
       <div class="page-title" style="margin:0">📊 داشبورد</div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span id="syncStatus" style="font-size:12px;color:#5a6080"></span>
-        <button class="btn btn-primary btn-sm" onclick="loadFromSheet()">🔄 بارگذاری از Sheets</button>
+        <button class="btn btn-primary btn-sm" onclick="refreshAll()">🔄 بارگذاری از Sheets</button>
       </div>
     </div>
       <div class="grid3" id="statsGrid"></div>
@@ -190,7 +190,7 @@ tr:hover td{background:#0e1018}
         <div class="page-title" style="margin:0">📦 کالاها</div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-sm" onclick="exportToExcel()" style="font-size:12px">📊 خروجی Excel</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadFromSheet();renderDashboard();" style="font-size:12px">🔄 بروزرسانی</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshAll()" style="font-size:12px">🔄 بروزرسانی</button>
         </div>
       </div>
 
@@ -330,7 +330,7 @@ tr:hover td{background:#0e1018}
 
     <!-- ── USERS ── -->
     <div id="view-users" class="hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="page-title" style="margin:0">👥 مدیریت کاربران</div><button class="btn btn-ghost btn-sm" onclick="loadPendingFromSheet();loadFromSheet();" style="font-size:12px">🔄 بروزرسانی</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="page-title" style="margin:0">👥 مدیریت کاربران</div><button class="btn btn-ghost btn-sm" onclick="refreshAll()" style="font-size:12px">🔄 بروزرسانی</button></div>
 
       <!-- Pending requests -->
       <div class="card" style="margin-bottom:16px">
@@ -366,7 +366,7 @@ tr:hover td{background:#0e1018}
         <div class="page-title" id="notifPageTitle" style="margin:0">📋 مدیریت درخواست‌ها</div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-primary btn-sm" onclick="openChatRequestForm()">💬 درخواست گفتگو</button>
-          <button class="btn btn-ghost btn-sm" onclick="refreshNotif()">🔄</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshAll()">🔄</button>
         </div>
       </div>
       <!-- تب‌ها فقط برای ادمین -->
@@ -2879,6 +2879,47 @@ function exportArchiveToExcel(){
   } else {
     showToast('❌ کتابخانه Excel بارگذاری نشده');
   }
+}
+
+// ── بروزرسانی جامع همه داده‌ها ──
+
+function refreshAll(){
+  showToast('🔄 در حال بروزرسانی...');
+
+  // 1. کالاها
+  loadFromSheet();
+
+  // 2. دسته‌بندی‌ها
+  if(typeof loadCatsFromSheet === 'function') loadCatsFromSheet();
+
+  // 3. کاربران (اگه ادمین)
+  if(canDo('users')){
+    callSheet('getUsers', {t:Date.now()}, function(data){
+      if(Array.isArray(data) && data.length>0){
+        USERS = data.filter(function(u){ return u.active!=='false'; });
+        saveUsers();
+        if(document.getElementById('view-users') && !document.getElementById('view-users').classList.contains('hidden')){
+          renderActiveUsers();
+        }
+      }
+    });
+    loadPendingFromSheet();
+  }
+
+  // 4. داشبورد
+  setTimeout(function(){
+    renderDashboard();
+    var itemsView = document.getElementById('view-items');
+    if(itemsView && !itemsView.classList.contains('hidden')) renderItems();
+  }, 1000);
+
+  // 5. درخواست‌ها (بسته به تب)
+  var notifView = document.getElementById('view-notif');
+  if(notifView && !notifView.classList.contains('hidden')){
+    refreshNotif();
+  }
+
+  setTimeout(function(){ showToast('✅ بروزرسانی شد'); }, 1500);
 }
 </script>
 </body>
