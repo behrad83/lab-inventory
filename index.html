@@ -2512,6 +2512,7 @@ function renderArchivedChanges(){
 }
 
 function archiveChange(id){
+  if(!canDo('users')){ showToast('دسترسی ندارید'); return; }
   callSheet('archiveChange', {id:id}, function(res){
     if(res && res.status==='ok'){
       pendingChanges = pendingChanges.filter(function(p){ return p.id!==id; });
@@ -2523,6 +2524,7 @@ function archiveChange(id){
 }
 
 function deleteChange(id){
+  if(!canDo('users')){ showToast('دسترسی ندارید'); return; }
   if(!confirm('این درخواست برای همیشه حذف شود؟')) return;
   callSheet('deleteChange', {id:id}, function(res){
     if(res && res.status==='ok'){
@@ -2557,6 +2559,7 @@ function getSelectedChangeIds(){
 }
 
 function bulkArchiveChanges(){
+  if(!canDo('users')){ showToast('دسترسی ندارید'); return; }
   var ids = getSelectedChangeIds();
   if(!ids.length) return;
   if(!confirm('بایگانی '+ids.length+' درخواست؟')) return;
@@ -2574,6 +2577,7 @@ function bulkArchiveChanges(){
 }
 
 function bulkDeleteChanges(){
+  if(!canDo('users')){ showToast('دسترسی ندارید'); return; }
   var ids = getSelectedChangeIds();
   if(!ids.length) return;
   if(!confirm('حذف دائم '+ids.length+' درخواست؟')) return;
