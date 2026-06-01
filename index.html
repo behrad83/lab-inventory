@@ -152,7 +152,7 @@ tr:hover td{background:#0e1018}
     <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
 
     <div class="nav" onclick="gotoView('users',this)"><span class="nav-icon">👥</span><span>کاربران</span></div>
-    <div class="nav" id="notifNav" onclick="gotoView('notif',this)" style="display:none"><span class="nav-icon">🔔</span><span>اعلان‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px">0</span></div>
+    <div class="nav" id="notifNav" onclick="gotoView('notif',this)"><span class="nav-icon">🔔</span><span>اعلان‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
     <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
     <div class="sidebar-bottom">
       <div class="user-chip"><div class="user-dot"></div><span id="userLabel">admin</span></div>
@@ -359,8 +359,8 @@ tr:hover td{background:#0e1018}
     <!-- ── NOTIFICATIONS ── -->
     <div id="view-notif" class="hidden">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div class="page-title" style="margin:0">🔔 اعلان‌های تغییر</div>
-        <button class="btn btn-ghost btn-sm" onclick="loadPendingChanges()">🔄 بروزرسانی</button>
+        <div class="page-title" id="notifPageTitle" style="margin:0">🔔 اعلان‌ها</div>
+        <button class="btn btn-ghost btn-sm" onclick="canDo('users')?loadPendingChanges():loadMyChanges()">🔄 بروزرسانی</button>
       </div>
       <div id="pendingChangesList"></div>
     </div>
@@ -420,7 +420,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycby5dA_ygSEh4iul8AgQUtQEY40fRiIOOaLYh-CaLc3CRmPx-V33Fld5wV6L2c6UiPjC/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbwM0cSASu51IUoI9YnI9H6p_uhObcSBeKbwgAkKo84QC2qP5M2c1rdD1nqFHFUlWPe_/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -538,7 +538,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycby5dA_ygSEh4iul8AgQUtQEY40fRiIOOaLYh-CaLc3CRmPx-V33Fld5wV6L2c6UiPjC/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbwM0cSASu51IUoI9YnI9H6p_uhObcSBeKbwgAkKo84QC2qP5M2c1rdD1nqFHFUlWPe_/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -835,11 +835,12 @@ function applyRoleUI(){
     if(txt.includes('افزودن کالا'))n.style.display=canAdd?'flex':'none';
     if(txt.includes('جستجوی AI'))n.style.display='flex';
   });
-  // نمایش اعلان‌ها فقط برای ادمین
-  var notifNav = document.getElementById('notifNav');
-  if(notifNav) notifNav.style.display = isAdmin ? 'flex' : 'none';
-  // بارگذاری اعلان‌ها برای ادمین
-  if(isAdmin) loadPendingChanges();
+  // اعلان برای همه کاربران
+  if(isAdmin){
+    loadPendingChanges(); // ادمین درخواست‌های کاربران
+  } else {
+    loadMyChanges(); // operator وضعیت درخواست‌های خودش
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -859,7 +860,17 @@ function gotoView(v,el){
   if(v==='dashboard')renderDashboard();
   else if(v==='items')renderItems();
   else if(v==='add'){renderCatSelect();}
-  else if(v==='notif'){loadPendingChanges();}
+  else if(v==='notif'){
+    var notifTitle = document.getElementById('notifPageTitle');
+    if(canDo('users')){
+      if(notifTitle) notifTitle.textContent = '🔔 درخواست‌های تغییر';
+      loadPendingChanges();
+      renderPendingChanges();
+    } else {
+      if(notifTitle) notifTitle.textContent = '🔔 وضعیت درخواست‌های من';
+      loadMyChanges();
+    }
+  }
   else if(v==='ai'){}
   else if(v==='users'){
     if(!canDo('users')){alert('دسترسی ندارید');return;}
@@ -1937,28 +1948,48 @@ function showRelatedItems(answer){
 // ── سیستم اعلان تغییرات ──
 
 var pendingChanges = [];
+var myChanges = [];
 
 function loadPendingChanges(){
+  // ادمین: بارگذاری درخواست‌های pending
   callSheet('getPendingChanges', {t: Date.now()}, function(data){
     if(Array.isArray(data)){
       pendingChanges = data;
       updateNotifBadge();
-      renderPendingChanges();
+      if(document.getElementById('view-notif') && !document.getElementById('view-notif').classList.contains('hidden')){
+        renderPendingChanges();
+      }
+    }
+  });
+}
+
+function loadMyChanges(){
+  // operator: بارگذاری وضعیت درخواست‌های خودش
+  if(!currentUser) return;
+  callSheet('getMyChanges', {user: currentUser.user, t: Date.now()}, function(data){
+    if(Array.isArray(data)){
+      myChanges = data;
+      updateNotifBadge();
+      if(document.getElementById('view-notif') && !document.getElementById('view-notif').classList.contains('hidden')){
+        renderMyChanges();
+      }
     }
   });
 }
 
 function updateNotifBadge(){
   var badge = document.getElementById('notifBadge');
-  var nav = document.getElementById('notifNav');
-  if(!badge || !nav) return;
-  var count = pendingChanges.length;
+  if(!badge) return;
+  var isAdmin = canDo('users');
+  var count = isAdmin ? pendingChanges.length : myChanges.filter(function(c){ return c.status==='pending'; }).length;
   badge.textContent = count;
   badge.style.display = count > 0 ? 'flex' : 'none';
-  nav.style.display = canDo('users') ? 'flex' : 'none';
 }
 
 function renderPendingChanges(){
+  // اگه ادمین نیست، وضعیت درخواست‌های خودش رو نشون بده
+  if(!canDo('users')){ renderMyChanges(); return; }
+  
   var el = document.getElementById('pendingChangesList');
   if(!el) return;
   if(!pendingChanges.length){
@@ -2055,6 +2086,7 @@ function submitChange(type, itemId, data){
     var s = document.getElementById(cbName); if(s) s.remove();
     if(res && res.status==='ok'){
       showToast('✅ درخواست ارسال شد — منتظر تأیید ادمین');
+      setTimeout(loadMyChanges, 1000);
     } else {
       showToast('❌ خطا در ارسال درخواست');
       console.error('submitChange error:', JSON.stringify(res));
@@ -2085,6 +2117,34 @@ function showToast(msg){
   t.textContent = msg;
   t.style.opacity = '1';
   setTimeout(function(){ t.style.opacity = '0'; }, 3000);
+}
+
+function renderMyChanges(){
+  var el = document.getElementById('pendingChangesList');
+  if(!el) return;
+  if(!myChanges.length){
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#5a6080">📭 هیچ درخواستی ارسال نشده</div>';
+    return;
+  }
+  el.innerHTML = myChanges.map(function(c){
+    var data = {};
+    try { data = JSON.parse(c.data); } catch(e) {}
+    var typeLabel = c.type==='add'?'➕ افزودن': c.type==='delete'?'🗑️ حذف':'✏️ ویرایش';
+    var status = c.status || 'pending';
+    var statusLabel = status==='pending'?'⏳ در حال بررسی': status==='approved'?'✅ تأیید شده':'❌ رد شده';
+    var statusColor = status==='pending'?'#f59e0b': status==='approved'?'#4ade80':'#f87171';
+    return '<div style="background:#0b0d14;border:1px solid #1a1d2e;border-radius:12px;padding:14px;margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'
+      + '<div style="display:flex;gap:8px;align-items:center">'
+      + '<span style="background:#1e2235;padding:3px 10px;border-radius:8px;font-size:12px">'+typeLabel+'</span>'
+      + '<span style="font-weight:600;font-size:13px;color:#e2e4f0">'+(data.name||c.itemId||'')+'</span>'
+      + '</div>'
+      + '<span style="background:'+statusColor+'22;color:'+statusColor+';padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600">'+statusLabel+'</span>'
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:11px;color:#5a6080">'+c.date+'</div>'
+      + (data.qty!==undefined ? '<div style="margin-top:4px;font-size:12px"><span style="color:#5a6080">موجودی: </span><span style="color:#4ade80">'+data.qty+' '+(data.unit||'')+'</span></div>' : '')
+      + '</div>';
+  }).join('');
 }
 </script>
 </body>
