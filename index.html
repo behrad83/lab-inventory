@@ -3116,8 +3116,10 @@ function updateAllBadges(){
   if(isAdmin){
     // badge کاربران: تعداد ثبت‌نام‌های در انتظار
     callSheet('getPending', {t:Date.now()}, function(data){
+      console.log('[Badge] pending users:', JSON.stringify(data).slice(0,200));
       var count = Array.isArray(data) ? data.filter(function(d){ return d.id; }).length : 0;
       var badge = document.getElementById('usersBadge');
+      console.log('[Badge] users count:', count, 'badge el:', !!badge);
       if(badge){
         badge.textContent = count;
         badge.style.display = count > 0 ? 'flex' : 'none';
@@ -3166,7 +3168,7 @@ function updateAllBadges(){
 var _badgeTimer = null;
 function startBadgeRefresh(){
   if(_badgeTimer) clearInterval(_badgeTimer);
-  updateAllBadges();
+  setTimeout(updateAllBadges, 1500);
   _badgeTimer = setInterval(updateAllBadges, 20000);
 }
 </script>
