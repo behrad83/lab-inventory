@@ -156,12 +156,10 @@ tr:hover td{background:#0e1018}
     <div class="nav" id="notifNav" onclick="gotoView('notif',this)"><span class="nav-icon">📋</span><span>درخواست‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
     <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
     <div class="sidebar-bottom">
-      <div class="user-chip" style="flex-direction:column;align-items:flex-start;gap:2px">
-        <div style="display:flex;align-items:center;gap:6px"><div class="user-dot"></div><span id="userLabel" style="font-weight:600">admin</span></div>
-        <div style="display:flex;gap:6px;align-items:center;padding-right:14px">
-          <span id="userHandle" style="font-size:11px;color:#5a6080;font-family:monospace"></span>
-          <span id="userRoleBadge" style="font-size:10px;padding:1px 8px;border-radius:6px"></span>
-        </div>
+      <div class="user-chip">
+        <div class="user-dot"></div>
+        <span id="userLabel" style="font-weight:600">admin</span>
+        <span id="userRoleBadge" style="font-size:10px;padding:1px 8px;border-radius:6px;margin-right:6px"></span>
       </div>
       <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="doLogout()"><span>🚪</span><span>خروج</span></button>
     </div>
@@ -611,8 +609,6 @@ function enterApp(u){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('userLabel').textContent=u.name||u.user;
-  var handle = document.getElementById('userHandle');
-  if(handle) handle.textContent = '@'+u.user;
   var roleBadge = document.getElementById('userRoleBadge');
   if(roleBadge && ROLES[u.role]){
     roleBadge.textContent = ROLES[u.role].label;
@@ -823,6 +819,11 @@ function renderActiveUsers(){
           </select>
           <button class="btn btn-danger btn-sm" onclick="removeUser('${u.user}')">حذف</button>
         </div>`}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;background:#0b0d14;border-radius:8px;padding:8px 10px">
+        <span style="font-size:11px;color:#5a6080">🔒 رمز فعلی:</span>
+        <span id="showpw_${u.user}" style="font-size:12px;font-family:monospace;color:#5a6080;flex:1">••••••••</span>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px" onclick="togglePassView('${u.user}','${(u.pass||'').replace(/'/g,'')}')">👁️ نمایش</button>
       </div>
       ${i===0?'':`
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
@@ -3184,6 +3185,20 @@ function startBadgeRefresh(){
   if(_badgeTimer) clearInterval(_badgeTimer);
   setTimeout(updateAllBadges, 1500);
   _badgeTimer = setInterval(updateAllBadges, 20000);
+}
+
+function togglePassView(username, pass){
+  var el = document.getElementById('showpw_'+username);
+  if(!el) return;
+  if(el.dataset.shown === '1'){
+    el.textContent = '••••••••';
+    el.dataset.shown = '0';
+    el.style.color = '#5a6080';
+  } else {
+    el.textContent = pass || '(خالی)';
+    el.dataset.shown = '1';
+    el.style.color = '#4ade80';
+  }
 }
 </script>
 </body>
