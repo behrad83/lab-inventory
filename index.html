@@ -823,7 +823,7 @@ function renderActiveUsers(){
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px;background:#0b0d14;border-radius:8px;padding:8px 10px">
         <span style="font-size:11px;color:#5a6080">🔒 رمز فعلی:</span>
         <span id="showpw_${u.user}" style="font-size:12px;font-family:monospace;color:#5a6080;flex:1">••••••••</span>
-        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px" onclick="togglePassView('${u.user}','${(u.pass||'').replace(/'/g,'')}')">👁️ نمایش</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px" onclick="togglePassView('${u.user}')">👁️ نمایش</button>
       </div>
       ${i===0?'':`
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
@@ -3187,7 +3187,7 @@ function startBadgeRefresh(){
   _badgeTimer = setInterval(updateAllBadges, 20000);
 }
 
-function togglePassView(username, pass){
+function togglePassView(username){
   var el = document.getElementById('showpw_'+username);
   if(!el) return;
   if(el.dataset.shown === '1'){
@@ -3195,6 +3195,8 @@ function togglePassView(username, pass){
     el.dataset.shown = '0';
     el.style.color = '#5a6080';
   } else {
+    var u = USERS.find(function(x){ return x.user === username; });
+    var pass = u ? (u.pass||'') : '';
     el.textContent = pass || '(خالی)';
     el.dataset.shown = '1';
     el.style.color = '#4ade80';
