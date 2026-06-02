@@ -2966,17 +2966,22 @@ function clearAllNotifs(){
 
 var _currentNotifs = [];
 
+var _notifPendingUsers = [];
+
 function loadNotifFeed(){
   if(!currentUser) return;
   var isAdmin = canDo('users');
 
   if(isAdmin){
-    // ادمین: درخواست‌های جدید + پیام‌های جدید
-    callSheet('getPendingChanges', {t:Date.now()}, function(data){
-      if(Array.isArray(data)) buildNotifFeed(data, true);
+    // ادمین: درخواست‌های ثبت‌نام جدید
+    callSheet('getPending', {t:Date.now()}, function(pdata){
+      _notifPendingUsers = Array.isArray(pdata) ? pdata.filter(function(d){ return d.id; }) : [];
+      // بعد درخواست‌های تغییر
+      callSheet('getPendingChanges', {t:Date.now()}, function(data){
+        if(Array.isArray(data)) buildNotifFeed(data, true);
+      });
     });
   } else {
-    // operator: وضعیت درخواست‌های خودش + پیام‌ها
     callSheet('getMyChanges', {user:currentUser.user, t:Date.now()}, function(data){
       if(Array.isArray(data)) buildNotifFeed(data, false);
     });
@@ -2986,6 +2991,20 @@ function loadNotifFeed(){
 function buildNotifFeed(changes, isAdmin){
   var dismissed = getDismissedNotifs();
   var notifs = [];
+
+  // اعلان ثبت‌نام کاربران جدید (فقط ادمین)
+  if(isAdmin && _notifPendingUsers.length){
+    _notifPendingUsers.forEach(function(u){
+      notifs.push({
+        id: 'reg_'+u.id,
+        changeId: null,
+        isUserReg: true,
+        icon: '👤', color: '#a78bfa',
+        text: 'درخواست ثبت‌نام جدید: ' + u.user + ' — برای تأیید به پنل کاربران بروید',
+        time: u.date || ''
+      });
+    });
+  }
 
   changes.forEach(function(c){
     var data = {};
@@ -2997,7 +3016,7 @@ function buildNotifFeed(changes, isAdmin){
 
     if(isAdmin){
       // درخواست جدید pending
-      if(st === 'pending'){
+      if(st === 'pending' && c.type !== 'message'){
         var nid = 'new_'+c.id;
         notifs.push({
           id: nid, changeId: c.id,
@@ -3064,13 +3083,21 @@ function buildNotifFeed(changes, isAdmin){
   }
 
   el.innerHTML = notifs.map(function(n){
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#0b0d14;border-radius:10px;margin-bottom:8px;border:1px solid #1a1d2e">'
+    var clickAction = '';
+    if(n.isUserReg){
+      clickAction = 'onclick="gotoView(&quot;users&quot;,document.querySelector(&quot;.nav&quot;))" style="cursor:pointer;';
+    } else if(n.changeId){
+      clickAction = 'onclick="gotoView(&quot;notif&quot;,null)" style="cursor:pointer;';
+    } else {
+      clickAction = 'style="';
+    }
+    return '<div '+clickAction+'display:flex;align-items:center;gap:10px;padding:10px;background:#0b0d14;border-radius:10px;margin-bottom:8px;border:1px solid #1a1d2e">'
       + '<div style="width:34px;height:34px;background:'+n.color+'22;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+n.icon+'</div>'
       + '<div style="flex:1;min-width:0">'
       + '<div style="font-size:13px;color:#e2e4f0">'+n.text+'</div>'
       + '<div style="font-size:11px;color:#5a6080;margin-top:2px">'+n.time+'</div>'
       + '</div>'
-      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;flex-shrink:0;padding:4px 10px" onclick="dismissNotif(&quot;'+n.id+'&quot;)">👁️ مشاهده شد</button>'
+      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;flex-shrink:0;padding:4px 10px" onclick="event.stopPropagation();dismissNotif(&quot;'+n.id+'&quot;)">👁️ مشاهده شد</button>'
       + '</div>';
   }).join('');
 }
