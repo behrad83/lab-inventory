@@ -521,7 +521,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbzcvrrbyseEZnqjKc9ex1uImPRVUuWod__JyzSU6-2TOaI25FeKPK-s9BC6O3e0f5Jv/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbz9R98NMgkF4TG1OA5wdtxtYzXu-FqkniN56U3dbitvhKh0YyriPAq4qRyxqTK1mcoy/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -643,7 +643,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbzcvrrbyseEZnqjKc9ex1uImPRVUuWod__JyzSU6-2TOaI25FeKPK-s9BC6O3e0f5Jv/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbz9R98NMgkF4TG1OA5wdtxtYzXu-FqkniN56U3dbitvhKh0YyriPAq4qRyxqTK1mcoy/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -3409,18 +3409,56 @@ function renderCatManageList(){
 }
 
 function deleteCat(id, name, count){
+  var moveTo = '';
   if(count > 0){
-    if(!confirm('این دسته‌بندی '+count+' کالا دارد. با حذف دسته، کالاها بدون دسته می‌مانند. ادامه؟')) return;
+    // لیست دسته‌های دیگه برای انتقال
+    var others = CATS.filter(function(c){ return c.name !== name; });
+    // دسته‌های پیش‌فرض رو هم اضافه کن اگه نیستن
+    var allNames = others.map(function(c){ return c.name; });
+    ['آزمایشگاه','یدکی','رزین'].forEach(function(n){
+      if(n !== name && allNames.indexOf(n)===-1) allNames.push(n);
+    });
+    if(!allNames.length){
+      if(!confirm('این دسته‌بندی '+count+' کالا دارد و دسته دیگری برای انتقال نیست. کالاها بدون دسته می‌مانند. ادامه؟')) return;
+      moveTo = '';
+    } else {
+      var msg = 'این دسته‌بندی «'+name+'» شامل '+count+' کالا است.\n\n';
+      msg += 'کالاها به کدام دسته منتقل شوند؟\n';
+      allNames.forEach(function(n, idx){ msg += (idx+1)+') '+n+'\n'; });
+      msg += '\nشماره دسته را وارد کنید (یا خالی بگذارید تا بدون دسته بمانند):';
+      var choice = prompt(msg);
+      if(choice === null) return; // انصراف
+      choice = choice.trim();
+      if(choice === ''){
+        moveTo = '';
+      } else {
+        var num = parseInt(choice);
+        if(num >= 1 && num <= allNames.length){
+          moveTo = allNames[num-1];
+        } else {
+          alert('شماره نامعتبر');
+          return;
+        }
+      }
+    }
   } else {
     if(!confirm('دسته‌بندی «'+name+'» حذف شود؟')) return;
   }
-  callSheet('deleteCat', {id:id, name:name}, function(res){
+
+  callSheet('deleteCat', {id:id, name:name, moveTo:moveTo}, function(res){
     if(res && res.status==='ok'){
       CATS = CATS.filter(function(c){ return c.id !== id; });
       if(typeof saveCats === 'function') saveCats();
+      // آپدیت کالاهای محلی
+      if(count > 0){
+        items = items.map(function(i){ return i.cat===name ? Object.assign({},i,{cat:moveTo}) : i; });
+        saveItems();
+      }
       renderCatManageList();
       renderCatSelect();
-      showToast('🗑️ دسته‌بندی حذف شد');
+      renderItems();
+      renderDashboard();
+      showToast(moveTo ? ('🗑️ حذف شد — کالاها به «'+moveTo+'» منتقل شدند') : '🗑️ دسته‌بندی حذف شد');
     } else {
       showToast('❌ خطا در حذف');
     }
