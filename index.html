@@ -156,7 +156,13 @@ tr:hover td{background:#0e1018}
     <div class="nav" id="notifNav" onclick="gotoView('notif',this)"><span class="nav-icon">📋</span><span>درخواست‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
     <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
     <div class="sidebar-bottom">
-      <div class="user-chip"><div class="user-dot"></div><span id="userLabel">admin</span></div>
+      <div class="user-chip" style="flex-direction:column;align-items:flex-start;gap:2px">
+        <div style="display:flex;align-items:center;gap:6px"><div class="user-dot"></div><span id="userLabel" style="font-weight:600">admin</span></div>
+        <div style="display:flex;gap:6px;align-items:center;padding-right:14px">
+          <span id="userHandle" style="font-size:11px;color:#5a6080;font-family:monospace"></span>
+          <span id="userRoleBadge" style="font-size:10px;padding:1px 8px;border-radius:6px"></span>
+        </div>
+      </div>
       <button class="btn btn-ghost" style="width:100%;font-size:12px" onclick="doLogout()"><span>🚪</span><span>خروج</span></button>
     </div>
   </div>
@@ -605,6 +611,14 @@ function enterApp(u){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('userLabel').textContent=u.name||u.user;
+  var handle = document.getElementById('userHandle');
+  if(handle) handle.textContent = '@'+u.user;
+  var roleBadge = document.getElementById('userRoleBadge');
+  if(roleBadge && ROLES[u.role]){
+    roleBadge.textContent = ROLES[u.role].label;
+    roleBadge.style.background = ROLES[u.role].color+'22';
+    roleBadge.style.color = ROLES[u.role].color;
+  }
   renderDashboard();
   loadFromSheet();
   loadCatsFromSheet();
