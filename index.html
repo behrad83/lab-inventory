@@ -1168,10 +1168,14 @@ function openDetail(id){
       <button class="btn btn-danger" style="flex:1" onclick="changeQty('${i.id}',-1)">➖ کاهش موجودی</button>
     </div>
 
-    <!-- ویرایش - فقط ادمین -->
+    <!-- ویرایش - فقط ادمین (کشویی) -->
     ${isAdmin?`
     <div style="border-top:1px solid #1a1d2e;margin-top:14px;padding-top:14px">
-      <div style="font-size:13px;font-weight:600;color:#c084fc;margin-bottom:12px">✏️ ویرایش کالا</div>
+      <div onclick="toggleEditForm()" style="font-size:13px;font-weight:600;color:#c084fc;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:#1e2235;padding:10px 14px;border-radius:10px">
+        <span>✏️ ویرایش کالا</span>
+        <span id="editFormArrow" style="font-size:14px">▼</span>
+      </div>
+      <div id="editFormBody" style="display:none">
       <div class="form-group">
         <label>نام کالا</label>
         <input class="inp" id="edit-name" value="${i.name}">
@@ -1227,6 +1231,7 @@ function openDetail(id){
       <div style="display:flex;gap:10px;margin-top:6px">
         <button class="btn btn-primary" style="flex:1" onclick="saveEdit('${i.id}')">💾 ذخیره تغییرات</button>
         <button class="btn btn-danger btn-sm" onclick="deleteItem('${i.id}')">🗑️ حذف</button>
+      </div>
       </div>
     </div>`:''}
   `;
@@ -3240,6 +3245,15 @@ function statusBadge(status){
   };
   var s = map[status] || map['نو'];
   return '<span style="background:'+s.color+'22;color:'+s.color+';padding:2px 10px;border-radius:8px;font-size:12px;white-space:nowrap">'+s.icon+' '+(status||'نو')+'</span>';
+}
+
+function toggleEditForm(){
+  var body = document.getElementById('editFormBody');
+  var arrow = document.getElementById('editFormArrow');
+  if(!body) return;
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.textContent = isOpen ? '▼' : '▲';
 }
 </script>
 </body>
