@@ -147,7 +147,7 @@ tr:hover td{background:#0e1018}
       <div class="logo-name">🧪 انبار لب</div>
       <div class="logo-sub">مدیریت هوشمند انبار</div>
     </div>
-    <div class="nav active" onclick="gotoView('dashboard',this)"><span class="nav-icon">📊</span><span>داشبورد</span></div>
+    <div class="nav active" onclick="gotoView('dashboard',this)"><span class="nav-icon">🏠</span><span>خانه</span></div>
     <div class="nav" onclick="gotoView('items',this)"><span class="nav-icon">📦</span><span>کالاها</span></div>
     <div class="nav" onclick="gotoView('add',this)"><span class="nav-icon">➕</span><span>افزودن کالا</span></div>
     <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
@@ -166,16 +166,25 @@ tr:hover td{background:#0e1018}
     <!-- ── DASHBOARD ── -->
     <div id="view-dashboard">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
-      <div class="page-title" style="margin:0">📊 داشبورد</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span id="syncStatus" style="font-size:12px;color:#5a6080"></span>
-        <button class="btn btn-primary btn-sm" onclick="refreshAll()">🔄 بارگذاری از Sheets</button>
+        <div class="page-title" style="margin:0">🏠 خانه</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span id="syncStatus" style="font-size:12px;color:#5a6080"></span>
+          <button class="btn btn-primary btn-sm" onclick="refreshAll()">🔄 بروزرسانی</button>
+        </div>
       </div>
-    </div>
-      <div class="grid3" id="statsGrid"></div>
-      <div id="lowAlert"></div>
+
+      <!-- پنجره اعلان‌ها -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-weight:600;font-size:14px">🔔 اعلان‌ها</div>
+          <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="clearAllNotifs()">پاک کردن همه</button>
+        </div>
+        <div id="notifFeed"><div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">در حال بارگذاری...</div></div>
+      </div>
+
+      <!-- آخرین کالاها -->
       <div class="card">
-        <div style="font-weight:600;font-size:14px;margin-bottom:12px">آخرین کالاهای اضافه‌شده</div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:12px">📦 آخرین کالاهای اضافه‌شده</div>
         <div style="overflow-x:auto">
           <table><thead><tr><th>کد کالا</th><th>نام</th><th>دسته</th><th>موجودی</th><th>قفسه</th></tr></thead>
           <tbody id="recentItems"></tbody></table>
@@ -183,8 +192,7 @@ tr:hover td{background:#0e1018}
       </div>
     </div>
 
-    <!-- ── ITEMS ── -->
-    <div id="view-items" class="hidden">
+    id="view-items" class="hidden">
       <!-- هدر -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
         <div class="page-title" style="margin:0">📦 کالاها</div>
@@ -952,31 +960,19 @@ function genCode(cat){
 //  DASHBOARD
 // ═══════════════════════════════════════════════
 function renderDashboard(){
-  const low=items.filter(i=>i.qty<=i.minQty);
-  document.getElementById('statsGrid').innerHTML=[
-    {l:'کل کالاها',v:items.length,s:'نوع ثبت‌شده',i:'📦',c:'#4f8ef7'},
-    {l:'کم‌موجود',v:low.length,s:'نیاز به سفارش',i:'⚠️',c:'#f59e0b'},
-    {l:'دسته آزمایشگاه',v:items.filter(i=>i.cat==='آزمایشگاه').length,s:'قلم',i:'🔬',c:'#60a5fa'},
-    {l:'یدکی و رزین',v:items.filter(i=>i.cat!=='آزمایشگاه').length,s:'قلم',i:'🔧',c:'#c084fc'},
-  ].map(s=>`<div class="stat-card"><div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div><div style="color:#5a6080;font-size:12px">${s.l}</div>
-    <div style="font-size:28px;font-weight:700;color:${s.c};margin-top:4px">${s.v}</div>
-    <div style="color:#2e3350;font-size:11px;margin-top:2px">${s.s}</div></div>
-    <div style="font-size:24px">${s.i}</div></div></div>`).join('');
-
-  document.getElementById('lowAlert').innerHTML=low.length?`<div class="card" style="border-color:#7f1d1d40;margin-bottom:16px">
-    <div style="color:#f87171;font-weight:600;margin-bottom:10px;font-size:13px">⚠️ کالاهای نیاز به سفارش (${low.length})</div>
-    ${low.map(i=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1a1d2e;font-size:12px">
-      <span>${i.name}</span><span style="color:#f87171">${i.qty} ${i.unit} / حداقل ${i.minQty}</span></div>`).join('')}
-  </div>`:'';
-
-  document.getElementById('recentItems').innerHTML=[...items].reverse().slice(0,6).map(i=>`<tr onclick="openDetail('${i.id}')" style="cursor:pointer">
-    <td style="color:#60a5fa;font-family:monospace;font-size:12px">${i.code}</td>
-    <td style="font-weight:500">${i.name}</td>
-    <td><span class="tag ${catClass(i.cat)}">${i.cat}</span></td>
-    <td>${i.qty} ${i.unit}</td>
-    <td style="color:#9aa3c2">قفسه ${i.shelf||'-'}</td>
-  </tr>`).join('');
+  // آخرین کالاها
+  var recentEl = document.getElementById('recentItems');
+  if(recentEl){
+    recentEl.innerHTML=[...items].reverse().slice(0,8).map(i=>`<tr onclick="openDetail('${i.id}')" style="cursor:pointer">
+      <td style="color:#60a5fa;font-family:monospace;font-size:12px">${i.code}</td>
+      <td style="font-weight:500">${i.name}</td>
+      <td><span class="tag ${catClass(i.cat)}">${i.cat}</span></td>
+      <td>${i.qty} ${i.unit}</td>
+      <td style="color:#9aa3c2">قفسه ${i.shelf||'-'}</td>
+    </tr>`).join('');
+  }
+  // بارگذاری اعلان‌ها
+  loadNotifFeed();
 }
 
 // ═══════════════════════════════════════════════
@@ -2664,9 +2660,29 @@ function startMyChangesRefresh(){
   _myChangesTimer = setInterval(function(){
     if(!canDo('users') && currentUser){
       var notifView = document.getElementById('view-notif');
-      if(notifView && !notifView.classList.contains('hidden')) loadMyChanges();
+      if(notifView && !notifView.classList.contains('hidden')){
+        // فقط اگه کارتی باز نیست refresh کن
+        var anyOpen = Array.from(document.querySelectorAll('[id^="myChgDetail_"]')).some(function(el){ return el.style.display==='block'; });
+        if(!anyOpen) loadMyChangesQuiet();
+      }
     }
-  }, 10000);
+  }, 15000);
+}
+
+function loadMyChangesQuiet(){
+  // بارگذاری بدون نمایش loading - فقط اگه تغییری بود render کن
+  if(!currentUser) return;
+  callSheet('getMyChanges', {user: currentUser.user, t: Date.now()}, function(data){
+    if(Array.isArray(data)){
+      var changed = JSON.stringify(data) !== JSON.stringify(myChanges);
+      myChanges = data;
+      updateNotifBadge();
+      if(changed){
+        var notifView = document.getElementById('view-notif');
+        if(notifView && !notifView.classList.contains('hidden')) renderMyChanges();
+      }
+    }
+  });
 }
 function stopMyChangesRefresh(){
   if(_myChangesTimer){ clearInterval(_myChangesTimer); _myChangesTimer = null; }
@@ -2702,7 +2718,7 @@ function openChatRequestForm(){
     + '<div style="margin-bottom:16px"><label style="font-size:13px;color:#9aa3c2;display:block;margin-bottom:6px">پیام شما</label>'
     + '<textarea id="chatReqMsg" class="inp" placeholder="پیام خود را بنویسید..." style="width:100%;box-sizing:border-box;min-height:90px;resize:vertical;font-family:inherit"></textarea></div>'
     + '<div style="display:flex;gap:8px">'
-    + '<button class="btn btn-primary" onclick="submitChatRequest()" style="flex:1">📤 ارسال</button>'
+    + '<button class="btn btn-primary" id="chatReqSubmitBtn" onclick="submitChatRequest()" style="flex:1">📤 ارسال</button>'
     + '<button class="btn btn-ghost" onclick="closeChatReqModal()">انصراف</button>'
     + '</div>'
     + '</div>';
@@ -2715,11 +2731,16 @@ function closeChatReqModal(){
   if(m) m.remove();
 }
 
+var _chatReqSubmitting = false;
 function submitChatRequest(){
+  if(_chatReqSubmitting){ return; }
   var isAdmin = canDo('users');
   var msgEl = document.getElementById('chatReqMsg');
   var msg = msgEl ? msgEl.value.trim() : '';
   if(!msg){ alert('پیام را بنویسید'); return; }
+  _chatReqSubmitting = true;
+  var btn = document.getElementById('chatReqSubmitBtn');
+  if(btn){ btn.textContent = '⏳ در حال ارسال...'; btn.disabled = true; }
 
   var target = 'admin';
   if(isAdmin){
@@ -2751,6 +2772,7 @@ function submitChatRequest(){
   window[cbName] = function(res){
     delete window[cbName];
     var s = document.getElementById(cbName); if(s) s.remove();
+    _chatReqSubmitting = false;
     if(res && res.status==='ok'){
       var role = isAdmin ? 'admin' : 'operator';
       sendChangeMessage(changeId, currentUser.user, role, msg);
@@ -2920,6 +2942,138 @@ function refreshAll(){
   }
 
   setTimeout(function(){ showToast('✅ بروزرسانی شد'); }, 1500);
+}
+
+// ── پنجره اعلان‌ها در داشبورد ──
+
+function getDismissedNotifs(){
+  try { return JSON.parse(localStorage.getItem('dismissed_notifs')||'[]'); } catch(e){ return []; }
+}
+function saveDismissedNotifs(arr){
+  localStorage.setItem('dismissed_notifs', JSON.stringify(arr));
+}
+function dismissNotif(notifId){
+  var d = getDismissedNotifs();
+  if(d.indexOf(notifId)===-1){ d.push(notifId); saveDismissedNotifs(d); }
+  loadNotifFeed();
+}
+function clearAllNotifs(){
+  // همه نوتیف‌های فعلی رو dismiss کن
+  var d = getDismissedNotifs();
+  _currentNotifs.forEach(function(n){ if(d.indexOf(n.id)===-1) d.push(n.id); });
+  saveDismissedNotifs(d);
+  loadNotifFeed();
+}
+
+var _currentNotifs = [];
+
+function loadNotifFeed(){
+  if(!currentUser) return;
+  var isAdmin = canDo('users');
+
+  if(isAdmin){
+    // ادمین: درخواست‌های جدید + پیام‌های جدید
+    callSheet('getPendingChanges', {t:Date.now()}, function(data){
+      if(Array.isArray(data)) buildNotifFeed(data, true);
+    });
+  } else {
+    // operator: وضعیت درخواست‌های خودش + پیام‌ها
+    callSheet('getMyChanges', {user:currentUser.user, t:Date.now()}, function(data){
+      if(Array.isArray(data)) buildNotifFeed(data, false);
+    });
+  }
+}
+
+function buildNotifFeed(changes, isAdmin){
+  var dismissed = getDismissedNotifs();
+  var notifs = [];
+
+  changes.forEach(function(c){
+    var data = {};
+    try { data = JSON.parse(c.data||'{}'); } catch(e){}
+    var msgs = [];
+    try { msgs = JSON.parse(c.messages||'[]'); } catch(e){}
+    var itemName = data.name || data.subject || c.itemId || 'کالا';
+    var st = (c.status||'pending').trim();
+
+    if(isAdmin){
+      // درخواست جدید pending
+      if(st === 'pending'){
+        var nid = 'new_'+c.id;
+        notifs.push({
+          id: nid, changeId: c.id,
+          icon: c.type==='message'?'💬':'📋',
+          color: '#f59e0b',
+          text: 'درخواست '+ (c.type==='message'?'گفتگو':'تغییر') +' جدید از ' + c.user + ' — ' + itemName,
+          time: c.date
+        });
+      }
+      // پیام جدید از operator (آخرین پیام از operator باشه)
+      if(msgs.length){
+        var lastMsg = msgs[msgs.length-1];
+        if(lastMsg.role === 'operator'){
+          var nid2 = 'msg_'+c.id+'_'+msgs.length;
+          notifs.push({
+            id: nid2, changeId: c.id,
+            icon: '✉️', color: '#60a5fa',
+            text: 'پیام جدید از ' + lastMsg.user + ': ' + lastMsg.text.slice(0,40),
+            time: lastMsg.time
+          });
+        }
+      }
+    } else {
+      // operator: درخواست تأیید یا رد شد
+      if(st === 'approved'){
+        notifs.push({
+          id: 'appr_'+c.id, changeId: c.id,
+          icon: '✅', color: '#4ade80',
+          text: 'درخواست شما تأیید شد — ' + itemName,
+          time: c.date
+        });
+      } else if(st === 'rejected'){
+        notifs.push({
+          id: 'rej_'+c.id, changeId: c.id,
+          icon: '❌', color: '#f87171',
+          text: 'درخواست شما رد شد — ' + itemName,
+          time: c.date
+        });
+      }
+      // پیام جدید از ادمین
+      if(msgs.length){
+        var lastMsg2 = msgs[msgs.length-1];
+        if(lastMsg2.role === 'admin'){
+          notifs.push({
+            id: 'amsg_'+c.id+'_'+msgs.length, changeId: c.id,
+            icon: '✉️', color: '#c084fc',
+            text: 'پیام از ادمین: ' + lastMsg2.text.slice(0,40),
+            time: lastMsg2.time
+          });
+        }
+      }
+    }
+  });
+
+  // فیلتر dismissed
+  notifs = notifs.filter(function(n){ return dismissed.indexOf(n.id)===-1; });
+  _currentNotifs = notifs;
+
+  var el = document.getElementById('notifFeed');
+  if(!el) return;
+  if(!notifs.length){
+    el.innerHTML = '<div style="color:#2e3350;font-size:13px;text-align:center;padding:20px">✨ اعلان جدیدی نیست</div>';
+    return;
+  }
+
+  el.innerHTML = notifs.map(function(n){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#0b0d14;border-radius:10px;margin-bottom:8px;border:1px solid #1a1d2e">'
+      + '<div style="width:34px;height:34px;background:'+n.color+'22;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+n.icon+'</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;color:#e2e4f0">'+n.text+'</div>'
+      + '<div style="font-size:11px;color:#5a6080;margin-top:2px">'+n.time+'</div>'
+      + '</div>'
+      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;flex-shrink:0;padding:4px 10px" onclick="dismissNotif(&quot;'+n.id+'&quot;)">👁️ مشاهده شد</button>'
+      + '</div>';
+  }).join('');
 }
 </script>
 </body>
