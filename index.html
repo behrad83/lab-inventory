@@ -3392,20 +3392,83 @@ function showRelatedItemsByCodes(codes){
 function renderCatManageList(){
   var el = document.getElementById('catManageList');
   if(!el) return;
-  if(!CATS || !CATS.length){
-    el.innerHTML = '<div style="color:#5a6080;font-size:12px;text-align:center;padding:10px">دسته‌بندی‌ای نیست</div>';
-    return;
-  }
-  el.innerHTML = CATS.map(function(c){
-    // چک کن چند کالا این دسته رو دارن
+
+  var html = '';
+  var knownNames = CATS.map(function(c){ return c.name; });
+
+  // دسته‌های ثبت‌شده
+  CATS.forEach(function(c){
     var count = items.filter(function(i){ return i.cat === c.name; }).length;
-    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0b0d14;border-radius:8px;margin-bottom:6px">'
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0b0d14;border-radius:8px;margin-bottom:6px">'
       + '<span style="font-size:18px">'+(c.icon||'📦')+'</span>'
       + '<div style="flex:1"><div style="font-size:13px;color:#e2e4f0">'+c.name+'</div>'
       + '<div style="font-size:11px;color:#5a6080">'+count+' کالا</div></div>'
       + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#f87171;padding:4px 10px" onclick="deleteCat(&quot;'+c.id+'&quot;,&quot;'+c.name+'&quot;,'+count+')">🗑️</button>'
       + '</div>';
-  }).join('');
+  });
+
+  // دسته‌های یتیم (کالا دارن ولی در لیست نیستن)
+  var orphanCats = {};
+  items.forEach(function(i){
+    if(i.cat && knownNames.indexOf(i.cat)===-1){
+      orphanCats[i.cat] = (orphanCats[i.cat]||0) + 1;
+    }
+  });
+  var orphanNames = Object.keys(orphanCats);
+  if(orphanNames.length){
+    html += '<div style="margin-top:12px;margin-bottom:6px;font-size:12px;color:#f59e0b">⚠️ دسته‌های حذف‌شده که هنوز کالا دارند:</div>';
+    orphanNames.forEach(function(name){
+      var count = orphanCats[name];
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#1a1505;border:1px solid #4a3a0a;border-radius:8px;margin-bottom:6px">'
+        + '<span style="font-size:18px">⚠️</span>'
+        + '<div style="flex:1"><div style="font-size:13px;color:#e2e4f0">'+name+'</div>'
+        + '<div style="font-size:11px;color:#f59e0b">'+count+' کالا — دسته وجود ندارد</div></div>'
+        + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#4ade80;padding:4px 8px" onclick="restoreCat(&quot;'+name+'&quot;)">↩️ بازگردانی</button>'
+        + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#f87171;padding:4px 8px" onclick="moveOrphanItems(&quot;'+name+'&quot;,'+count+')">انتقال</button>'
+        + '</div>';
+    });
+  }
+
+  if(!html){
+    html = '<div style="color:#5a6080;font-size:12px;text-align:center;padding:10px">دسته‌بندی‌ای نیست</div>';
+  }
+  el.innerHTML = html;
+}
+
+function restoreCat(name){
+  // دسته یتیم رو دوباره بساز
+  var id = 'cat_' + Date.now();
+  callSheet('addCat', {id:id, name:name, icon:'📦'}, function(res){
+    CATS.push({id:id, name:name, icon:'📦'});
+    if(typeof saveCats==='function') saveCats();
+    renderCatManageList();
+    renderCatSelect();
+    showToast('↩️ دسته «'+name+'» بازگردانده شد');
+  });
+}
+
+function moveOrphanItems(name, count){
+  var allNames = CATS.map(function(c){ return c.name; });
+  if(!allNames.length){ alert('دسته‌ای برای انتقال نیست. اول یک دسته بسازید.'); return; }
+  var msg = count+' کالای دسته «'+name+'» به کدام دسته منتقل شوند؟\n';
+  allNames.forEach(function(n,idx){ msg += (idx+1)+') '+n+'\n'; });
+  var choice = prompt(msg);
+  if(choice===null) return;
+  var num = parseInt(choice.trim());
+  if(num>=1 && num<=allNames.length){
+    var moveTo = allNames[num-1];
+    callSheet('deleteCat', {id:'', name:name, moveTo:moveTo}, function(res){
+      items = items.map(function(i){ return i.cat===name?Object.assign({},i,{cat:moveTo}):i; });
+      saveItems();
+      renderCatManageList();
+      renderCatSelect();
+      renderItems();
+      renderDashboard();
+      showToast('کالاها به «'+moveTo+'» منتقل شدند');
+    });
+  } else {
+    alert('شماره نامعتبر');
+  }
 }
 
 function deleteCat(id, name, count){
