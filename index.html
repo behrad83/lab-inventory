@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>انبار آزمایشگاه</title>
+<title>سیستم مدیریت هوشمند کالا iPrint3D</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -103,6 +104,36 @@ tr:hover td{background:#0e1018}
   .main{margin-right:54px;padding:14px}
   .grid3{grid-template-columns:1fr 1fr}
 }
+
+/* ── RESPONSIVE / MOBILE ── */
+.mobile-topbar{display:none}
+.menu-toggle{background:#1e2235;border:1px solid #2a2f45;border-radius:10px;width:42px;height:42px;align-items:center;justify-content:center;font-size:20px;cursor:pointer;color:#e2e4f0;flex-shrink:0}
+.menu-toggle:active{transform:scale(0.92)}
+.mobile-brand{font-size:22px;color:#fff;direction:ltr}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:49}
+@media (max-width:768px){
+  .mobile-topbar{display:flex;align-items:center;justify-content:space-between;position:fixed;top:0;left:0;right:0;height:58px;background:#0e1018;border-bottom:1px solid #1a1d2e;padding:0 14px;z-index:100}
+  .menu-toggle{display:flex}
+  .sidebar{transform:translateX(100%);transition:transform 0.3s ease;width:260px;box-shadow:-4px 0 20px rgba(0,0,0,0.4);top:0}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay{top:0}
+  .sidebar-overlay.show{display:block}
+  .main{margin-right:0;padding:72px 14px 24px}
+  .grid2{grid-template-columns:1fr!important}
+  .grid3{grid-template-columns:1fr!important}
+  table{font-size:12px}
+  th,td{padding:6px 4px!important}
+  .page-title{font-size:18px}
+  .modal{max-width:95vw!important;margin:10px}
+}
+@media (max-width:480px){
+  .main{padding:60px 10px 20px}
+  .stat-card{padding:12px}
+}
+
+/* ── BRAND LOGO ── */
+.iprint-brand{font-family:'Quicksand',sans-serif;font-weight:700;letter-spacing:-1px;direction:ltr;display:inline-block}
+.iprint-brand .dot{color:#e63946}
 </style>
 </head>
 <body>
@@ -110,9 +141,8 @@ tr:hover td{background:#0e1018}
 <!-- ══ LOGIN ════════════════════════════════════════ -->
 <div id="loginScreen">
   <div class="login-box">
-    <div class="login-logo">🧪</div>
-    <div class="login-title">انبار آزمایشگاه</div>
-    <div class="login-sub">سیستم مدیریت هوشمند انبار</div>
+    <div class="login-title iprint-brand" style="font-size:40px;color:#fff;-webkit-text-fill-color:#fff;background:none">iprint3d</div>
+    <div class="login-sub">سیستم مدیریت هوشمند کالا</div>
     <input class="login-inp" id="loginUser" placeholder="نام کاربری" autocomplete="username">
     <input class="login-inp" id="loginPass" placeholder="رمز عبور" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="login-btn" onclick="doLogin()">ورود به سیستم</button>
@@ -141,11 +171,17 @@ tr:hover td{background:#0e1018}
 
 <!-- ══ APP ═══════════════════════════════════════════ -->
 <div id="app" class="hidden">
+  <!-- Mobile top bar -->
+  <div class="mobile-topbar">
+    <div class="menu-toggle" onclick="toggleSidebar()">☰</div>
+    <div class="mobile-brand iprint-brand">iprint3d</div>
+  </div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
   <!-- Sidebar -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
     <div class="logo">
-      <div class="logo-name">🧪 انبار لب</div>
-      <div class="logo-sub">مدیریت هوشمند انبار</div>
+      <div class="logo-name iprint-brand" style="font-size:24px;color:#fff;direction:ltr">iprint3d</div>
+      <div class="logo-sub">سیستم مدیریت هوشمند کالا</div>
     </div>
     <div class="nav active" onclick="gotoView('dashboard',this)"><span class="nav-icon">🏠</span><span>خانه</span></div>
     <div class="nav" onclick="gotoView('items',this)"><span class="nav-icon">📦</span><span>کالاها</span></div>
@@ -454,7 +490,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyW9nDjfXzpDJV6gmkCl6ju-8OfiFtUEcIVB7rANlTWMZ4tLHVizHX6jRlnjUpfJBO8/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbyNkuS1XGj3PWO-8o8CPa56hwWaUfitD8E2wNf070b0odws7bmzrv3YAo_zGwFiBixR/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -522,6 +558,10 @@ function doPost(e){
       <button class="btn btn-success" style="flex:1" onclick="saveNewCat()">ذخیره</button>
       <button class="btn btn-ghost" onclick="closeAddCat()">انصراف</button>
     </div>
+    <div style="border-top:1px solid #1a1d2e;margin-top:16px;padding-top:14px">
+      <div style="font-size:13px;font-weight:600;color:#9aa3c2;margin-bottom:10px">دسته‌بندی‌های موجود</div>
+      <div id="catManageList"></div>
+    </div>
   </div>
 </div>
 
@@ -572,7 +612,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbyW9nDjfXzpDJV6gmkCl6ju-8OfiFtUEcIVB7rANlTWMZ4tLHVizHX6jRlnjUpfJBO8/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbyNkuS1XGj3PWO-8o8CPa56hwWaUfitD8E2wNf070b0odws7bmzrv3YAo_zGwFiBixR/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -920,6 +960,8 @@ function renderUserList(){
 }
 
 function gotoView(v,el){
+  // در موبایل سایدبار رو ببند
+  closeSidebar();
   // اگه از notif خارج میشیم refresh رو متوقف کن
   if(v !== 'notif') stopMyChangesRefresh();
   document.querySelectorAll('[id^="view-"]').forEach(x=>x.classList.add('hidden'));
@@ -1366,7 +1408,7 @@ function closeDetail(){document.getElementById('modal-detail').classList.add('hi
 // ═══════════════════════════════════════════════
 function buildContext(){
   const total=items.reduce(function(s,i){return s+i.qty;},0);
-  return 'تو دستیار هوشمند انبار آزمایشگاه هستی و باید دقیق و کامل پاسخ بدی.\n\n'
+  return 'تو دستیار هوشمند سیستم مدیریت کالا هستی و باید دقیق و کامل پاسخ بدی.\n\n'
   +'قوانین مهم:\n'
   +'- اگر پرسیدن «چند تا X داریم» → همه کالاهایی که اسمشان شامل X میشود را پیدا کن و تعدادشان را جمع بزن\n'
   +'- اگر پرسیدن «X کجاست» → قفسه و ردیف دقیق را بگو\n'
@@ -1587,6 +1629,7 @@ function showAddCat(){
   document.querySelectorAll('.icon-opt').forEach(function(el){
     el.style.borderColor='transparent';el.style.background='transparent';
   });
+  renderCatManageList();
   document.getElementById('modal-addCat').classList.remove('hidden');
   setTimeout(function(){document.getElementById('newCatName').focus();},100);
 }
@@ -2890,7 +2933,7 @@ function exportToExcel(){
     ws['!cols'] = [{wch:12},{wch:25},{wch:12},{wch:10},{wch:8},{wch:12},{wch:12},{wch:8},{wch:30},{wch:14}];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'کالاها');
-    var fileName = 'انبار_آزمایشگاه_' + new Date().toLocaleDateString('fa-IR').replace(/\//g,'-') + '.xlsx';
+    var fileName = 'iPrint3D_کالاها_' + new Date().toLocaleDateString('fa-IR').replace(/\//g,'-') + '.xlsx';
     XLSX.writeFile(wb, fileName);
     showToast('✅ فایل Excel دانلود شد ('+list.length+' کالا)');
   } else {
@@ -2966,42 +3009,48 @@ function exportArchiveToExcel(){
 // ── بروزرسانی جامع همه داده‌ها ──
 
 function refreshAll(){
-  showToast('🔄 در حال بروزرسانی...');
+  showToast('🔄 در حال بروزرسانی کامل...');
 
-  // 1. کالاها
+  // بستن همه مودال‌های باز
+  document.querySelectorAll('.modal-bg').forEach(function(m){ m.classList.add('hidden'); });
+  closeSidebar();
+
+  // 1. کالاها از Sheet
   loadFromSheet();
 
-  // 2. دسته‌بندی‌ها
+  // 2. دسته‌بندی‌ها از Sheet
   if(typeof loadCatsFromSheet === 'function') loadCatsFromSheet();
 
-  // 3. کاربران (اگه ادمین)
+  // 3. کاربران از Sheet (اگه ادمین)
   if(canDo('users')){
     callSheet('getUsers', {t:Date.now()}, function(data){
       if(Array.isArray(data) && data.length>0){
         USERS = data.filter(function(u){ return u.active!=='false'; });
         saveUsers();
-        if(document.getElementById('view-users') && !document.getElementById('view-users').classList.contains('hidden')){
-          renderActiveUsers();
-        }
+        renderActiveUsers();
       }
     });
     loadPendingFromSheet();
   }
 
-  // 4. داشبورد
+  // 4. آپدیت آخرین حضور خود کاربر
+  updateMyLastSeen();
+
+  // 5. بازسازی همه view ها بعد از لود داده
   setTimeout(function(){
     renderDashboard();
     var itemsView = document.getElementById('view-items');
     if(itemsView && !itemsView.classList.contains('hidden')) renderItems();
-  }, 1000);
+    // درخواست‌ها
+    var notifView = document.getElementById('view-notif');
+    if(notifView && !notifView.classList.contains('hidden')) refreshNotif();
+    // badge ها
+    updateAllBadges();
+    // دسته‌بندی select در فرم افزودن
+    if(typeof renderCatSelect === 'function') renderCatSelect();
+  }, 1200);
 
-  // 5. درخواست‌ها (بسته به تب)
-  var notifView = document.getElementById('view-notif');
-  if(notifView && !notifView.classList.contains('hidden')){
-    refreshNotif();
-  }
-
-  setTimeout(function(){ showToast('✅ بروزرسانی شد'); }, 1500);
+  setTimeout(function(){ showToast('✅ همه چیز بروزرسانی شد'); }, 1800);
 }
 
 // ── پنجره اعلان‌ها در داشبورد ──
@@ -3307,6 +3356,65 @@ function showRelatedItemsByCodes(codes){
 
   box.appendChild(wrap);
   box.scrollTop = box.scrollHeight;
+}
+
+function renderCatManageList(){
+  var el = document.getElementById('catManageList');
+  if(!el) return;
+  if(!CATS || !CATS.length){
+    el.innerHTML = '<div style="color:#5a6080;font-size:12px;text-align:center;padding:10px">دسته‌بندی‌ای نیست</div>';
+    return;
+  }
+  el.innerHTML = CATS.map(function(c){
+    // چک کن چند کالا این دسته رو دارن
+    var count = items.filter(function(i){ return i.cat === c.name; }).length;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0b0d14;border-radius:8px;margin-bottom:6px">'
+      + '<span style="font-size:18px">'+(c.icon||'📦')+'</span>'
+      + '<div style="flex:1"><div style="font-size:13px;color:#e2e4f0">'+c.name+'</div>'
+      + '<div style="font-size:11px;color:#5a6080">'+count+' کالا</div></div>'
+      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#f87171;padding:4px 10px" onclick="deleteCat(&quot;'+c.id+'&quot;,&quot;'+c.name+'&quot;,'+count+')">🗑️</button>'
+      + '</div>';
+  }).join('');
+}
+
+function deleteCat(id, name, count){
+  if(count > 0){
+    if(!confirm('این دسته‌بندی '+count+' کالا دارد. با حذف دسته، کالاها بدون دسته می‌مانند. ادامه؟')) return;
+  } else {
+    if(!confirm('دسته‌بندی «'+name+'» حذف شود؟')) return;
+  }
+  callSheet('deleteCat', {id:id, name:name}, function(res){
+    if(res && res.status==='ok'){
+      CATS = CATS.filter(function(c){ return c.id !== id; });
+      if(typeof saveCats === 'function') saveCats();
+      renderCatManageList();
+      renderCatSelect();
+      showToast('🗑️ دسته‌بندی حذف شد');
+    } else {
+      showToast('❌ خطا در حذف');
+    }
+  });
+}
+
+function toggleSidebar(){
+  var sb = document.getElementById('sidebar');
+  var ov = document.getElementById('sidebarOverlay');
+  if(!sb) return;
+  var isOpen = sb.classList.contains('open');
+  if(isOpen){
+    sb.classList.remove('open');
+    if(ov) ov.classList.remove('show');
+  } else {
+    sb.classList.add('open');
+    if(ov) ov.classList.add('show');
+  }
+}
+
+function closeSidebar(){
+  var sb = document.getElementById('sidebar');
+  var ov = document.getElementById('sidebarOverlay');
+  if(sb) sb.classList.remove('open');
+  if(ov) ov.classList.remove('show');
 }
 </script>
 </body>
