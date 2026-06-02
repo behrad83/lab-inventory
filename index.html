@@ -152,7 +152,7 @@ tr:hover td{background:#0e1018}
     <div class="nav" onclick="gotoView('add',this)"><span class="nav-icon">➕</span><span>افزودن کالا</span></div>
     <div class="nav" onclick="gotoView('ai',this)"><span class="nav-icon">🤖</span><span>جستجوی AI</span></div>
 
-    <div class="nav" onclick="gotoView('users',this)"><span class="nav-icon">👥</span><span>کاربران</span></div>
+    <div class="nav" onclick="gotoView('users',this)"><span class="nav-icon">👥</span><span>کاربران</span><span id="usersBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
     <div class="nav" id="notifNav" onclick="gotoView('notif',this)"><span class="nav-icon">📋</span><span>درخواست‌ها</span><span id="notifBadge" style="background:#f87171;color:#fff;border-radius:50%;min-width:18px;height:18px;display:none;align-items:center;justify-content:center;font-size:10px;margin-right:4px;padding:0 4px">0</span></div>
     <div class="nav" onclick="gotoView('setup',this)"><span class="nav-icon">⚙️</span><span>تنظیمات</span></div>
     <div class="sidebar-bottom">
@@ -613,6 +613,7 @@ function enterApp(u){
   // ثبت زمان آنلاین شدن
   updateMyLastSeen();
   startHeartbeat();
+  startBadgeRefresh();
 }
 
 function updateMyLastSeen(){
@@ -2193,6 +2194,7 @@ function approvePendingChange(id){
     if(res && res.status==='ok'){
       loadPendingChanges();
       loadFromSheet();
+      updateAllBadges();
       showToast('✅ درخواست تأیید شد');
     }
   });
@@ -2204,6 +2206,7 @@ function rejectPendingChange(id){
   callSheet('rejectPendingChange', {id:id, adminMsg:adminMsg}, function(res){
     if(res && res.status==='ok'){
       loadPendingChanges();
+      updateAllBadges();
       showToast('❌ درخواست رد شد');
     }
   });
@@ -2258,6 +2261,7 @@ function submitChange(type, itemId, data){
     var s = document.getElementById(cbName); if(s) s.remove();
     if(res && res.status==='ok'){
       showToast('✅ درخواست ارسال شد — منتظر تأیید ادمین');
+      updateAllBadges();
       // اگه توضیح اولیه داشت ارسال کن
       if(window._pendingInitMsg && window._pendingInitMsg.trim()){
         sendChangeMessage(changeId, currentUser.user, 'operator', window._pendingInitMsg);
@@ -2955,6 +2959,7 @@ function dismissNotif(notifId){
   var d = getDismissedNotifs();
   if(d.indexOf(notifId)===-1){ d.push(notifId); saveDismissedNotifs(d); }
   loadNotifFeed();
+  updateAllBadges();
 }
 function clearAllNotifs(){
   // همه نوتیف‌های فعلی رو dismiss کن
@@ -3100,6 +3105,69 @@ function buildNotifFeed(changes, isAdmin){
       + '<button class="btn btn-ghost btn-sm" style="font-size:11px;flex-shrink:0;padding:4px 10px" onclick="event.stopPropagation();dismissNotif(&quot;'+n.id+'&quot;)">👁️ مشاهده شد</button>'
       + '</div>';
   }).join('');
+}
+
+// ── بروزرسانی badge های منو ──
+
+function updateAllBadges(){
+  if(!currentUser) return;
+  var isAdmin = canDo('users');
+
+  if(isAdmin){
+    // badge کاربران: تعداد ثبت‌نام‌های در انتظار
+    callSheet('getPending', {t:Date.now()}, function(data){
+      var count = Array.isArray(data) ? data.filter(function(d){ return d.id; }).length : 0;
+      var badge = document.getElementById('usersBadge');
+      if(badge){
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+      }
+    });
+    // badge درخواست‌ها: تعداد pending changes
+    callSheet('getPendingChanges', {t:Date.now()}, function(data){
+      var count = 0;
+      if(Array.isArray(data)){
+        count = data.filter(function(c){ return (c.status||'pending').trim()==='pending'; }).length;
+      }
+      var badge = document.getElementById('notifBadge');
+      if(badge){
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+      }
+    });
+  } else {
+    // operator: badge درخواست‌ها = پیام‌های جدید یا تغییر وضعیت
+    callSheet('getMyChanges', {user:currentUser.user, t:Date.now()}, function(data){
+      var count = 0;
+      if(Array.isArray(data)){
+        // درخواست‌هایی که تأیید/رد شدن یا پیام جدید دارن
+        var dismissed = getDismissedNotifs();
+        data.forEach(function(c){
+          var st = (c.status||'pending').trim();
+          if(st==='approved' && dismissed.indexOf('appr_'+c.id)===-1) count++;
+          else if(st==='rejected' && dismissed.indexOf('rej_'+c.id)===-1) count++;
+          var msgs=[]; try{msgs=JSON.parse(c.messages||'[]');}catch(e){}
+          if(msgs.length){
+            var last=msgs[msgs.length-1];
+            if(last.role==='admin' && dismissed.indexOf('amsg_'+c.id+'_'+msgs.length)===-1) count++;
+          }
+        });
+      }
+      var badge = document.getElementById('notifBadge');
+      if(badge){
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+      }
+    });
+  }
+}
+
+// بروزرسانی badge ها هر 20 ثانیه
+var _badgeTimer = null;
+function startBadgeRefresh(){
+  if(_badgeTimer) clearInterval(_badgeTimer);
+  updateAllBadges();
+  _badgeTimer = setInterval(updateAllBadges, 20000);
 }
 </script>
 </body>
