@@ -312,16 +312,13 @@ tr:hover td{background:#0e1018}
       <div class="page-title">➕ افزودن کالای جدید</div>
       <div class="card" style="max-width:600px">
         <div style="background:#0b0d14;border:1px solid #4f8ef730;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#60a5fa">
-          💡 کد کالا خودکار ساخته می‌شود. بارکد کارخانه را می‌توانید جدا ثبت کنید
+          💡 کد کالا به‌صورت خودکار تولید می‌شود
         </div>
         <div class="form-group">
           <label>نام کالا *</label>
           <input class="inp" id="ni-name" placeholder="مثال: پیپت ۱۰۰۰ میکرولیتر">
         </div>
-        <div class="form-group">
-          <label>بارکد محصول (اختیاری — بارکد کارخانه برای اسکن)</label>
-          <input class="inp" id="ni-barcode" placeholder="بارکد روی جعبه محصول (اگر دارد)">
-        </div>
+        <input type="hidden" id="ni-barcode">
         <div class="form-group">
           <label>توضیحات</label>
           <textarea class="inp" id="ni-desc" placeholder="مشخصات فنی، برند، کاربرد..." rows="3" style="resize:vertical"></textarea>
@@ -3657,13 +3654,10 @@ function onScanSuccess(code){
       gotoView('add', document.querySelector('.nav'));
       setTimeout(function(){
         var barcodeInp = document.getElementById('ni-barcode');
-        if(barcodeInp){
-          barcodeInp.value = found;
-          barcodeInp.style.background = '#1a2a3a';
-        }
+        if(barcodeInp) barcodeInp.value = found;
         var nameInp = document.getElementById('ni-name');
         if(nameInp) nameInp.focus();
-        showToast('📷 بارکد ثبت شد — نام و مشخصات کالا را وارد کنید');
+        showToast('مشخصات کالای اسکن‌شده را وارد کنید');
       }, 300);
     }
   }
