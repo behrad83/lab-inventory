@@ -312,15 +312,15 @@ tr:hover td{background:#0e1018}
       <div class="page-title">➕ افزودن کالای جدید</div>
       <div class="card" style="max-width:600px">
         <div style="background:#0b0d14;border:1px solid #4f8ef730;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#60a5fa">
-          💡 کد کالا را می‌توانید خالی بگذارید (خودکار) یا بارکد محصول را اسکن/وارد کنید
+          💡 کد کالا خودکار ساخته می‌شود. بارکد کارخانه را می‌توانید جدا ثبت کنید
         </div>
         <div class="form-group">
           <label>نام کالا *</label>
           <input class="inp" id="ni-name" placeholder="مثال: پیپت ۱۰۰۰ میکرولیتر">
         </div>
         <div class="form-group">
-          <label>کد کالا (اختیاری — اگر خالی باشد خودکار ساخته می‌شود)</label>
-          <input class="inp" id="ni-code" placeholder="می‌توانید بارکد محصول را وارد کنید">
+          <label>بارکد محصول (اختیاری — بارکد کارخانه برای اسکن)</label>
+          <input class="inp" id="ni-barcode" placeholder="بارکد روی جعبه محصول (اگر دارد)">
         </div>
         <div class="form-group">
           <label>توضیحات</label>
@@ -527,7 +527,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbz9R98NMgkF4TG1OA5wdtxtYzXu-FqkniN56U3dbitvhKh0YyriPAq4qRyxqTK1mcoy/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycby2pXgz0c7zPS8vH3AP-Da5IlULZWi8pQtophchLTOVvOn6mzaMg9FR8p8xffX53pHW/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -661,7 +661,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbz9R98NMgkF4TG1OA5wdtxtYzXu-FqkniN56U3dbitvhKh0YyriPAq4qRyxqTK1mcoy/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycby2pXgz0c7zPS8vH3AP-Da5IlULZWi8pQtophchLTOVvOn6mzaMg9FR8p8xffX53pHW/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -1233,6 +1233,7 @@ function openDetail(id){
       ${[
         ['دسته‌بندی', `<span style="color:${catColor}">${i.cat}</span>`],
         ['وضعیت کالا', statusBadge(i.status||'نو')],
+        ...(i.barcode?[['بارکد محصول', `<span style="font-family:monospace;color:#9aa3c2">${i.barcode}</span>`]]:[]),
         ['موقعیت', `قفسه ${i.shelf} — ردیف ${i.row}`],
         ['موجودی', `<span style="color:${i.qty<=i.minQty?'#f87171':'#4ade80'};font-weight:700">${i.qty} ${i.unit}</span>`],
         ['حداقل موجودی', `${i.minQty} ${i.unit}`],
@@ -1310,6 +1311,10 @@ function openDetail(id){
           <option value="استفاده‌شده" ${i.status==='استفاده‌شده'?'selected':''}>📦 استفاده‌شده</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>بارکد محصول</label>
+        <input class="inp" id="edit-barcode" value="${i.barcode||''}" placeholder="بارکد کارخانه (اختیاری)">
+      </div>
       <div class="form-group" style="margin-top:8px">
         <label>عکس کالا</label>
         ${i.image?`<div style="margin-bottom:10px"><img src="${i.image}" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14"></div>`:''}
@@ -1356,12 +1361,14 @@ function saveEdit(id){
   const cat=document.getElementById('edit-cat').value;
   const statusEl=document.getElementById('edit-status');
   const status=statusEl?statusEl.value:'نو';
+  const bcEl=document.getElementById('edit-barcode');
+  const barcode=bcEl?bcEl.value.trim():'';
 
   if(!name){alert('نام کالا الزامی است');return;}
 
   const item=items.find(function(i){return i.id===id;});
   if(!item)return;
-  const updated = Object.assign({},item,{name,desc,shelf,row,qty,minQty,cat,status});
+  const updated = Object.assign({},item,{name,desc,shelf,row,qty,minQty,cat,status,barcode});
 
   // بررسی لینک عکس جدید
   const imgUrlInput = document.getElementById('edit-image-url-'+id);
@@ -1643,6 +1650,7 @@ function loadFromSheet(){
         code:String(d.code||''), name:String(d.name||''), desc:String(d.desc||''),
         cat:String(d.cat||'آزمایشگاه'), qty:Number(d.qty)||0, unit:String(d.unit||'عدد'),
         status:String(d.status||'نو'),
+        barcode:String(d.barcode||''),
         shelf:String(d.shelf||'-'), row:String(d.row||'-'), minQty:Number(d.minQty)||0, date:String(d.date||''), image:String(d.image||'')
       }));
       saveItems();
@@ -2010,11 +2018,11 @@ function addItem(){
 
   const unitEl=document.getElementById('ni-unit');
   const unit=cat==='رزین'?(unitEl?unitEl.value:'گرم'):'عدد';
-  var codeInp = document.getElementById('ni-code');
-  var customCode = codeInp ? codeInp.value.trim() : '';
-  const code = customCode || genCode(cat);
+  const code = genCode(cat);
   const id='item_'+Date.now();
   const statusEl=document.getElementById('ni-status');
+  var barcodeInp = document.getElementById('ni-barcode');
+  var barcode = barcodeInp ? barcodeInp.value.trim() : '';
   const item={
     id,code,name,
     desc:document.getElementById('ni-desc').value.trim(),
@@ -2023,6 +2031,7 @@ function addItem(){
     row:(document.getElementById('ni-row').value.trim()||'-'),
     minQty:parseInt(document.getElementById('ni-min').value)||0,
     status:(statusEl?statusEl.value:'نو'),
+    barcode:barcode,
     date:new Date().toLocaleDateString('fa-IR'),
     image:''
   };
@@ -2063,7 +2072,7 @@ function addItem(){
 }
 
 function clearAddForm(keepResult){
-  ['ni-name','ni-code','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
+  ['ni-name','ni-barcode','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
     const el=document.getElementById(id);if(el)el.value='';
   });
   var stEl=document.getElementById('ni-status');if(stEl)stEl.value='نو';
@@ -2381,6 +2390,8 @@ function submitChange(type, itemId, data){
     minQty: data.minQty||0,
     date: data.date||'',
     image: data.image||'',
+    status: data.status||'نو',
+    barcode: data.barcode||'',
     // داده اصلی برای مقایسه
     _orig_qty: original ? original.qty : null,
     _orig_name: original ? original.name : null,
@@ -2970,6 +2981,7 @@ function exportToExcel(){
       'واحد': i.unit,
       'حداقل موجودی': i.minQty,
       'وضعیت': i.status||'نو',
+      'بارکد': i.barcode||'',
       'قفسه': i.shelf,
       'ردیف': i.row,
       'توضیحات': i.desc||'',
@@ -3625,7 +3637,9 @@ function onScanSuccess(code){
   closeScanner();
 
   var found = code.trim();
+  // جستجو بر اساس کد کالا یا بارکد
   var item = items.find(function(i){ return i.code === found; });
+  if(!item) item = items.find(function(i){ return i.barcode && i.barcode === found; });
   if(!item) item = items.find(function(i){ return found.indexOf(i.code) !== -1; });
   if(!item) item = items.find(function(i){ return i.id === found; });
 
@@ -3633,24 +3647,23 @@ function onScanSuccess(code){
     showToast('✅ کالا پیدا شد: ' + item.name);
     setTimeout(function(){ openDetail(item.id); }, 200);
   } else {
-    // کالا پیدا نشد - پیشنهاد ثبت کالای جدید با این کد
+    // کالا پیدا نشد - پیشنهاد ثبت کالای جدید
     if(!canDo('add')){
-      showToast('❌ کالایی با کد «' + found + '» یافت نشد');
+      showToast('❌ همچین کالایی وجود ندارد');
       return;
     }
-    var go = confirm('❌ همچین کالایی وجود ندارد.\n\nکد اسکن‌شده: ' + found + '\n\nآیا مایل به افزودن کالای جدید با این کد هستید؟');
+    var go = confirm('❌ همچین کالایی وجود ندارد.\n\nبارکد اسکن‌شده: ' + found + '\n\nآیا مایل به افزودن کالای جدید هستید؟\n(کد کالا خودکار ساخته می‌شود و این بارکد به آن وصل می‌شود)');
     if(go){
       gotoView('add', document.querySelector('.nav'));
       setTimeout(function(){
-        var codeInp = document.getElementById('ni-code');
-        if(codeInp){
-          codeInp.value = found;
-          // قفل کن تا کاربر اشتباه عوض نکنه
-          codeInp.style.background = '#1a2a3a';
+        var barcodeInp = document.getElementById('ni-barcode');
+        if(barcodeInp){
+          barcodeInp.value = found;
+          barcodeInp.style.background = '#1a2a3a';
         }
         var nameInp = document.getElementById('ni-name');
         if(nameInp) nameInp.focus();
-        showToast('📷 کد «' + found + '» در فرم قرار گرفت — بقیه فیلدها را پر کنید');
+        showToast('📷 بارکد ثبت شد — نام و مشخصات کالا را وارد کنید');
       }, 300);
     }
   }
