@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Vazirmatn','Tahoma',sans-serif;direction:rtl;background:#0b0d14;color:#e2e4f0;min-height:100vh}
@@ -268,7 +269,8 @@ tr:hover td{background:#0e1018}
       <!-- هدر -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px">
         <div class="page-title" style="margin:0">📦 کالاها</div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="openScanner()" style="font-size:12px">📷 اسکن بارکد/QR</button>
           <button class="btn btn-ghost btn-sm" onclick="exportToExcel()" style="font-size:12px">📊 خروجی Excel</button>
           <button class="btn btn-ghost btn-sm" onclick="refreshAll()" style="font-size:12px">🔄 بروزرسانی</button>
         </div>
@@ -596,6 +598,18 @@ function doPost(e){
   </div>
 </div>
 
+<!-- ── SCANNER MODAL ── -->
+<div id="modal-scanner" class="modal-bg hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px">
+  <div style="background:#13151f;border:1px solid #2a2f45;border-radius:16px;padding:20px;max-width:420px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:600;color:#e2e4f0">📷 اسکن بارکد / QR کد</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeScanner()" style="font-size:18px;padding:2px 10px">✕</button>
+    </div>
+    <div id="scannerView" style="width:100%;border-radius:12px;overflow:hidden;background:#0b0d14;min-height:280px"></div>
+    <div id="scannerMsg" style="text-align:center;font-size:13px;color:#5a6080;margin-top:12px">دوربین را به سمت بارکد یا QR کد بگیرید</div>
+  </div>
+</div>
+
 <!-- ── DETAIL MODAL ── -->
 <div id="modal-detail" class="modal-bg hidden" onclick="if(event.target===this)closeDetail()">
   <div class="modal"><div id="detailContent"></div></div>
@@ -638,7 +652,7 @@ function canDo(perm){
 function saveItems(){localStorage.setItem('lab_items',JSON.stringify(items))}
 function saveUsers(){localStorage.setItem('lab_users',JSON.stringify(USERS));}
 function saveGroqKey(){localStorage.setItem('groqKey',document.getElementById('groqKeyInp').value)}
-function loadGroqKey(){return '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';}
+function loadGroqKey(){return '';}
 function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
@@ -3547,6 +3561,99 @@ function closeSidebar(){
   var ov = document.getElementById('sidebarOverlay');
   if(sb) sb.classList.remove('open');
   if(ov) ov.classList.remove('show');
+}
+
+// ── اسکنر بارکد و QR ──
+
+var _qrScanner = null;
+
+function openScanner(){
+  var modal = document.getElementById('modal-scanner');
+  if(modal) modal.classList.remove('hidden');
+  var msg = document.getElementById('scannerMsg');
+
+  if(typeof Html5Qrcode !== 'undefined'){
+    startScannerCamera();
+    return;
+  }
+
+  // کتابخانه نیست - تلاش برای بارگذاری مجدد
+  if(msg) msg.textContent = 'در حال بارگذاری اسکنر...';
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+  s.onload = function(){
+    if(typeof Html5Qrcode !== 'undefined'){
+      startScannerCamera();
+    } else {
+      if(msg) msg.textContent = '❌ بارگذاری اسکنر ناموفق بود';
+    }
+  };
+  s.onerror = function(){
+    if(msg) msg.textContent = '❌ اتصال به سرور اسکنر ناموفق (اینترنت را چک کنید)';
+  };
+  document.head.appendChild(s);
+}
+
+function startScannerCamera(){
+  var msg = document.getElementById('scannerMsg');
+  if(msg) msg.textContent = 'در حال راه‌اندازی دوربین...';
+
+  _qrScanner = new Html5Qrcode('scannerView');
+  var config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+  _qrScanner.start(
+    { facingMode: 'environment' },
+    config,
+    function(decodedText){ onScanSuccess(decodedText); },
+    function(err){}
+  ).then(function(){
+    if(msg) msg.textContent = 'دوربین را به سمت بارکد یا QR کد بگیرید';
+  }).catch(function(err){
+    if(msg) msg.textContent = '❌ دسترسی به دوربین رد شد یا دوربین موجود نیست';
+    console.error('Scanner error:', err);
+  });
+}
+
+function onScanSuccess(code){
+  // توقف اسکنر
+  stopScanner();
+  closeScanner();
+
+  var found = code.trim();
+  // جستجو بر اساس کد کالا
+  var item = items.find(function(i){ return i.code === found; });
+  // اگه پیدا نشد، شاید کل URL یا متن باشه - سعی کن کد رو استخراج کنی
+  if(!item){
+    item = items.find(function(i){ return found.indexOf(i.code) !== -1; });
+  }
+  // جستجو بر اساس id
+  if(!item){
+    item = items.find(function(i){ return i.id === found; });
+  }
+
+  if(item){
+    showToast('✅ کالا پیدا شد: ' + item.name);
+    setTimeout(function(){ openDetail(item.id); }, 200);
+  } else {
+    showToast('❌ کالایی با کد «' + found + '» یافت نشد');
+  }
+}
+
+function stopScanner(){
+  if(_qrScanner){
+    try {
+      _qrScanner.stop().then(function(){
+        _qrScanner.clear();
+        _qrScanner = null;
+      }).catch(function(){ _qrScanner = null; });
+    } catch(e){ _qrScanner = null; }
+  }
+}
+
+function closeScanner(){
+  stopScanner();
+  var modal = document.getElementById('modal-scanner');
+  if(modal) modal.classList.add('hidden');
 }
 </script>
 </body>
