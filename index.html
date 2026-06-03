@@ -312,11 +312,15 @@ tr:hover td{background:#0e1018}
       <div class="page-title">➕ افزودن کالای جدید</div>
       <div class="card" style="max-width:600px">
         <div style="background:#0b0d14;border:1px solid #4f8ef730;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#60a5fa">
-          💡 کد کالا به‌صورت خودکار تولید می‌شود
+          💡 کد کالا را می‌توانید خالی بگذارید (خودکار) یا بارکد محصول را اسکن/وارد کنید
         </div>
         <div class="form-group">
           <label>نام کالا *</label>
           <input class="inp" id="ni-name" placeholder="مثال: پیپت ۱۰۰۰ میکرولیتر">
+        </div>
+        <div class="form-group">
+          <label>کد کالا (اختیاری — اگر خالی باشد خودکار ساخته می‌شود)</label>
+          <input class="inp" id="ni-code" placeholder="می‌توانید بارکد محصول را وارد کنید">
         </div>
         <div class="form-group">
           <label>توضیحات</label>
@@ -2006,7 +2010,9 @@ function addItem(){
 
   const unitEl=document.getElementById('ni-unit');
   const unit=cat==='رزین'?(unitEl?unitEl.value:'گرم'):'عدد';
-  const code=genCode(cat);
+  var codeInp = document.getElementById('ni-code');
+  var customCode = codeInp ? codeInp.value.trim() : '';
+  const code = customCode || genCode(cat);
   const id='item_'+Date.now();
   const statusEl=document.getElementById('ni-status');
   const item={
@@ -2057,7 +2063,7 @@ function addItem(){
 }
 
 function clearAddForm(keepResult){
-  ['ni-name','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
+  ['ni-name','ni-code','ni-desc','ni-shelf','ni-row','ni-qty','ni-min','ni-image-url'].forEach(function(id){
     const el=document.getElementById(id);if(el)el.value='';
   });
   var stEl=document.getElementById('ni-status');if(stEl)stEl.value='نو';
@@ -3615,27 +3621,38 @@ function startScannerCamera(){
 }
 
 function onScanSuccess(code){
-  // توقف اسکنر
   stopScanner();
   closeScanner();
 
   var found = code.trim();
-  // جستجو بر اساس کد کالا
   var item = items.find(function(i){ return i.code === found; });
-  // اگه پیدا نشد، شاید کل URL یا متن باشه - سعی کن کد رو استخراج کنی
-  if(!item){
-    item = items.find(function(i){ return found.indexOf(i.code) !== -1; });
-  }
-  // جستجو بر اساس id
-  if(!item){
-    item = items.find(function(i){ return i.id === found; });
-  }
+  if(!item) item = items.find(function(i){ return found.indexOf(i.code) !== -1; });
+  if(!item) item = items.find(function(i){ return i.id === found; });
 
   if(item){
     showToast('✅ کالا پیدا شد: ' + item.name);
     setTimeout(function(){ openDetail(item.id); }, 200);
   } else {
-    showToast('❌ کالایی با کد «' + found + '» یافت نشد');
+    // کالا پیدا نشد - پیشنهاد ثبت کالای جدید با این کد
+    if(!canDo('add')){
+      showToast('❌ کالایی با کد «' + found + '» یافت نشد');
+      return;
+    }
+    var go = confirm('❌ همچین کالایی وجود ندارد.\n\nکد اسکن‌شده: ' + found + '\n\nآیا مایل به افزودن کالای جدید با این کد هستید؟');
+    if(go){
+      gotoView('add', document.querySelector('.nav'));
+      setTimeout(function(){
+        var codeInp = document.getElementById('ni-code');
+        if(codeInp){
+          codeInp.value = found;
+          // قفل کن تا کاربر اشتباه عوض نکنه
+          codeInp.style.background = '#1a2a3a';
+        }
+        var nameInp = document.getElementById('ni-name');
+        if(nameInp) nameInp.focus();
+        showToast('📷 کد «' + found + '» در فرم قرار گرفت — بقیه فیلدها را پر کنید');
+      }, 300);
+    }
   }
 }
 
