@@ -318,7 +318,14 @@ tr:hover td{background:#0e1018}
           <label>نام کالا *</label>
           <input class="inp" id="ni-name" placeholder="مثال: پیپت ۱۰۰۰ میکرولیتر">
         </div>
-        <input type="hidden" id="ni-barcode">
+        <div class="form-group">
+          <label>بارکد محصول (اختیاری)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="inp" id="ni-barcode" placeholder="اسکن یا تایپ بارکد کارخانه" style="flex:1">
+            <button type="button" class="btn btn-primary btn-sm" onclick="scanBarcodeForAdd()" style="white-space:nowrap;padding:10px 14px">📷 اسکن</button>
+          </div>
+          <div style="font-size:11px;color:#5a6080;margin-top:4px">💡 کد کالا خودکار ساخته می‌شود — بارکد فقط برای اسکن سریع است</div>
+        </div>
         <div class="form-group">
           <label>توضیحات</label>
           <textarea class="inp" id="ni-desc" placeholder="مشخصات فنی، برند، کاربرد..." rows="3" style="resize:vertical"></textarea>
@@ -3628,10 +3635,23 @@ function startScannerCamera(){
 }
 
 function onScanSuccess(code){
+  var mode = _scanMode; // قبل از بستن، حالت رو ذخیره کن
   stopScanner();
   closeScanner();
 
   var found = String(code).trim();
+
+  // حالت پر کردن فیلد بارکد در فرم افزودن
+  if(mode === 'fill'){
+    var bcInp = document.getElementById('ni-barcode');
+    if(bcInp){
+      bcInp.value = found;
+      bcInp.style.background = '#1a2a3a';
+    }
+    showToast('📷 بارکد ثبت شد: ' + found);
+    return;
+  }
+
   // جستجو بر اساس کد کالا یا بارکد
   var item = items.find(function(i){ return String(i.code).trim() === found; });
   if(!item) item = items.find(function(i){ return i.barcode && String(i.barcode).trim() === found; });
@@ -3674,8 +3694,17 @@ function stopScanner(){
 
 function closeScanner(){
   stopScanner();
+  _scanMode = 'search';
   var modal = document.getElementById('modal-scanner');
   if(modal) modal.classList.add('hidden');
+}
+
+// ── اسکن بارکد برای فرم افزودن ──
+var _scanMode = 'search'; // 'search' یا 'fill'
+
+function scanBarcodeForAdd(){
+  _scanMode = 'fill';
+  openScanner();
 }
 </script>
 </body>
