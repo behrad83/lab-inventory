@@ -1230,12 +1230,10 @@ function openDetail(id){
       ${[
         ['دسته‌بندی', `<span style="color:${catColor}">${i.cat}</span>`],
         ['وضعیت کالا', statusBadge(i.status||'نو')],
-        ...(i.barcode?[['بارکد محصول', `<span style="font-family:monospace;color:#9aa3c2">${i.barcode}</span>`]]:[]),
         ['موقعیت', `قفسه ${i.shelf} — ردیف ${i.row}`],
         ['موجودی', `<span style="color:${i.qty<=i.minQty?'#f87171':'#4ade80'};font-weight:700">${i.qty} ${i.unit}</span>`],
         ['حداقل موجودی', `${i.minQty} ${i.unit}`],
-        ['وضعیت', i.qty<=i.minQty?'⚠️ کم‌موجود':'✅ موجود'],
-        ['تاریخ ثبت', i.date]
+        ['تاریخ ثبت', i.date||'—']
       ].map(function(r){return `<div style="background:#0b0d14;border-radius:10px;padding:12px">
         <div style="color:#5a6080;font-size:11px">${r[0]}</div>
         <div style="font-size:13px;margin-top:4px">${r[1]}</div>
