@@ -329,12 +329,7 @@ tr:hover td{background:#0e1018}
           </div>
           <div style="font-size:11px;color:#5a6080;margin-top:4px">💡 کد کالا خودکار ساخته می‌شود — بارکد فقط برای اسکن سریع است</div>
         </div>
-        <div class="form-group">
-          <label>زیردسته‌ها (اختیاری)</label>
-          <div id="ni-subcats"></div>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="addSubcatRow('ni-subcats')" style="margin-top:6px">+ افزودن زیردسته</button>
-          <div style="font-size:11px;color:#5a6080;margin-top:4px">💡 مثلاً: نوع رزین → استاندارد v2 | رنگ → سفید | برند → ...</div>
-        </div>
+
         <div class="form-group">
           <label>توضیحات</label>
           <textarea class="inp" id="ni-desc" placeholder="مشخصات فنی، برند، کاربرد..." rows="3" style="resize:vertical"></textarea>
@@ -343,9 +338,16 @@ tr:hover td{background:#0e1018}
           <div class="form-group">
             <label>دسته‌بندی *</label>
             <div style="display:flex;gap:8px">
-              <select class="inp" id="ni-cat" onchange="toggleUnit()" style="flex:1"></select>
+              <select class="inp" id="ni-cat" onchange="toggleUnit();refreshDatalists('ni-subcats')" style="flex:1"></select>
               <button type="button" class="btn btn-ghost btn-sm" id="addCatBtn" onclick="showAddCat()" style="white-space:nowrap;padding:10px 12px">+ دسته</button>
             </div>
+          </div>
+          <div class="form-group">
+            <label>زیردسته‌ها (اختیاری)</label>
+            <div id="ni-subcats-datalists"></div>
+            <div id="ni-subcats"></div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addSubcatRow('ni-subcats')" style="margin-top:6px">+ افزودن زیردسته</button>
+            <div style="font-size:11px;color:#5a6080;margin-top:4px">💡 مثلاً: نوع → استاندارد v2 | رنگ → سفید | برند → ...</div>
           </div>
           <div class="form-group">
             <label>وضعیت کالا</label>
@@ -735,6 +737,7 @@ function enterApp(u){
   updateMyLastSeen();
   startHeartbeat();
   startBadgeRefresh();
+  loadSubcatTemplates();
 }
 
 function updateMyLastSeen(){
@@ -1330,6 +1333,7 @@ function openDetail(id){
       </div>
       <div class="form-group">
         <label>زیردسته‌ها</label>
+        <div id="edit-subcats-datalists"></div>
         <div id="edit-subcats"></div>
         <button type="button" class="btn btn-ghost btn-sm" onclick="addSubcatRow('edit-subcats')" style="margin-top:6px">+ افزودن زیردسته</button>
       </div>
@@ -1354,6 +1358,7 @@ function openDetail(id){
 
   // پر کردن زیردسته‌ها در فرم ویرایش
   if(isAdmin){
+    window._editCat = i.cat;
     var iSubcats = [];
     try { iSubcats = JSON.parse(i.subcats||'[]'); } catch(e){ iSubcats = []; }
     setTimeout(function(){ fillSubcats('edit-subcats', iSubcats); }, 50);
@@ -1388,7 +1393,9 @@ function saveEdit(id){
   const status=statusEl?statusEl.value:'نو';
   const bcEl=document.getElementById('edit-barcode');
   const barcode=bcEl?bcEl.value.trim():'';
-  const subcats=JSON.stringify(getSubcats('edit-subcats'));
+  var subcatsArr=getSubcats('edit-subcats');
+  const subcats=JSON.stringify(subcatsArr);
+  updateSubcatTemplate(cat, subcatsArr);
 
   if(!name){alert('نام کالا الزامی است');return;}
 
@@ -1681,6 +1688,7 @@ function loadFromSheet(){
         shelf:String(d.shelf||'-'), row:String(d.row||'-'), minQty:Number(d.minQty)||0, date:String(d.date||''), image:String(d.image||'')
       }));
       saveItems();
+      buildSubcatTemplates();
       renderDashboard();
       if(statusEl) statusEl.textContent = '✅ '+items.length+' کالا بارگذاری شد';
     } else {
@@ -2035,6 +2043,9 @@ function toggleUnit(){
   if(unitRow) unitRow.style.display = isResin ? 'flex' : 'none';
   if(badge) badge.textContent = isResin ? 'گرم' : 'عدد';
   if(qtyLabel) qtyLabel.textContent = isResin ? 'حجم/وزن موجودی *' : 'تعداد موجودی *';
+  // آپدیت datalist زیردسته‌ها بر اساس دسته انتخاب‌شده
+  var dlContainer = document.getElementById('ni-subcats-datalists');
+  if(dlContainer) dlContainer.innerHTML = buildDatalists(cat.value);
 }
 
 function addItem(){
@@ -2051,6 +2062,7 @@ function addItem(){
   var barcodeInp = document.getElementById('ni-barcode');
   var barcode = barcodeInp ? barcodeInp.value.trim() : '';
   var subcats = getSubcats('ni-subcats');
+  updateSubcatTemplate(cat, subcats);
   const item={
     id,code,name,
     desc:document.getElementById('ni-desc').value.trim(),
@@ -3736,19 +3748,97 @@ function scanBarcodeForAdd(){
   openScanner();
 }
 
-// ── مدیریت زیردسته‌ها ──
+// ── مدیریت زیردسته‌ها (با حافظه الگو) ──
+
+// الگوی زیردسته‌ها برای هر دسته: { 'رزین': {keys:['نوع','رنگ'], values:{'نوع':['abs like'],'رنگ':['مشکی','سفید']}} }
+var SUBCAT_TEMPLATES = {};
+
+function buildSubcatTemplates(){
+  // ساخت الگوها از روی کالاهای موجود (هر دسته جدا)
+  SUBCAT_TEMPLATES = {};
+  items.forEach(function(it){
+    if(!it.cat) return;
+    var sc = [];
+    try { sc = JSON.parse(it.subcats||'[]'); } catch(e){ return; }
+    if(!sc.length) return;
+    if(!SUBCAT_TEMPLATES[it.cat]) SUBCAT_TEMPLATES[it.cat] = {keys:[], values:{}};
+    var tmpl = SUBCAT_TEMPLATES[it.cat];
+    sc.forEach(function(s){
+      if(!s.k) return;
+      if(tmpl.keys.indexOf(s.k) === -1) tmpl.keys.push(s.k);
+      if(!tmpl.values[s.k]) tmpl.values[s.k] = [];
+      if(s.v && tmpl.values[s.k].indexOf(s.v) === -1) tmpl.values[s.k].push(s.v);
+    });
+  });
+}
+
+function loadSubcatTemplates(){
+  // الگوها از روی کالاهای موجود ساخته می‌شوند
+  buildSubcatTemplates();
+}
+
+function getCurrentFormCat(prefix){
+  // دسته انتخاب‌شده فعلی در فرم
+  if(prefix === 'ni'){
+    var el = document.getElementById('ni-cat');
+    return el ? el.value : '';
+  } else {
+    // edit form - از window._editCat
+    return window._editCat || '';
+  }
+}
+
+function buildDatalists(cat){
+  // ساخت datalist های مورد نیاز برای دسته
+  var tmpl = SUBCAT_TEMPLATES[cat] || {keys:[], values:{}};
+  var html = '<datalist id="dl-keys">';
+  (tmpl.keys||[]).forEach(function(k){ html += '<option value="'+k.replace(/"/g,'&quot;')+'">'; });
+  html += '</datalist>';
+  // datalist برای هر کلید
+  Object.keys(tmpl.values||{}).forEach(function(k){
+    var safeId = 'dl-val-' + encodeURIComponent(k).replace(/[^a-zA-Z0-9]/g,'');
+    html += '<datalist id="'+safeId+'">';
+    (tmpl.values[k]||[]).forEach(function(v){ html += '<option value="'+v.replace(/"/g,'&quot;')+'">'; });
+    html += '</datalist>';
+  });
+  return html;
+}
 
 function addSubcatRow(containerId, key, val){
   var container = document.getElementById(containerId);
   if(!container) return;
+  var prefix = containerId === 'ni-subcats' ? 'ni' : 'edit';
+  var cat = getCurrentFormCat(prefix);
+  var tmpl = SUBCAT_TEMPLATES[cat] || {keys:[], values:{}};
+
+  var rowId = 'sc_' + Date.now() + '_' + Math.floor(Math.random()*1000);
   var row = document.createElement('div');
   row.className = 'subcat-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:8px';
+
+  var keyVal = (key||'').replace(/"/g,'&quot;');
+  var valVal = (val||'').replace(/"/g,'&quot;');
+  var valListId = key ? ('dl-val-' + encodeURIComponent(key).replace(/[^a-zA-Z0-9]/g,'')) : '';
+
   row.innerHTML =
-    '<input class="inp subcat-key" placeholder="عنوان (مثل رنگ)" value="'+(key||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:8px 10px;font-size:13px">'
-    + '<input class="inp subcat-val" placeholder="مقدار (مثل سفید)" value="'+(val||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:8px 10px;font-size:13px">'
-    + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentNode.remove()" style="color:#f87171;padding:6px 10px">🗑️</button>';
+    '<input class="inp subcat-key" list="dl-keys" placeholder="عنوان (مثل رنگ)" value="'+keyVal+'" style="flex:1;padding:9px 11px;font-size:13px;border-radius:9px" oninput="onSubcatKeyChange(this)">'
+    + '<input class="inp subcat-val" '+(valListId?'list="'+valListId+'"':'')+' placeholder="مقدار (مثل سفید)" value="'+valVal+'" style="flex:1;padding:9px 11px;font-size:13px;border-radius:9px">'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentNode.remove()" style="color:#f87171;padding:7px 11px;flex-shrink:0">🗑️</button>';
   container.appendChild(row);
+}
+
+function onSubcatKeyChange(input){
+  // وقتی عنوان عوض شد، datalist مقدار رو آپدیت کن
+  var key = input.value.trim();
+  var valInput = input.parentNode.querySelector('.subcat-val');
+  if(valInput && key){
+    var safeId = 'dl-val-' + encodeURIComponent(key).replace(/[^a-zA-Z0-9]/g,'');
+    if(document.getElementById(safeId)){
+      valInput.setAttribute('list', safeId);
+    } else {
+      valInput.removeAttribute('list');
+    }
+  }
 }
 
 function getSubcats(containerId){
@@ -3768,8 +3858,41 @@ function fillSubcats(containerId, subcats){
   var container = document.getElementById(containerId);
   if(!container) return;
   container.innerHTML = '';
+  // datalist ها رو بساز
+  var prefix = containerId === 'ni-subcats' ? 'ni' : 'edit';
+  var cat = getCurrentFormCat(prefix);
+  var dlContainer = document.getElementById(containerId+'-datalists');
+  if(dlContainer) dlContainer.innerHTML = buildDatalists(cat);
   if(subcats && subcats.length){
     subcats.forEach(function(s){ addSubcatRow(containerId, s.k, s.v); });
+  }
+}
+
+function refreshDatalists(containerId){
+  // وقتی دسته عوض شد، datalist ها رو دوباره بساز
+  var prefix = containerId === 'ni-subcats' ? 'ni' : 'edit';
+  var cat = getCurrentFormCat(prefix);
+  var dlContainer = document.getElementById(containerId+'-datalists');
+  if(dlContainer) dlContainer.innerHTML = buildDatalists(cat);
+}
+
+// ذخیره الگوی جدید بعد از ثبت کالا (عنوان‌ها و مقادیر جدید رو به حافظه دسته اضافه کن)
+function updateSubcatTemplate(cat, subcats){
+  if(!cat || !subcats || !subcats.length) return;
+  var tmpl = SUBCAT_TEMPLATES[cat] || {keys:[], values:{}};
+  if(!tmpl.keys) tmpl.keys = [];
+  if(!tmpl.values) tmpl.values = {};
+  var changed = false;
+  subcats.forEach(function(s){
+    if(s.k && tmpl.keys.indexOf(s.k)===-1){ tmpl.keys.push(s.k); changed = true; }
+    if(s.k){
+      if(!tmpl.values[s.k]) tmpl.values[s.k] = [];
+      if(s.v && tmpl.values[s.k].indexOf(s.v)===-1){ tmpl.values[s.k].push(s.v); changed = true; }
+    }
+  });
+  if(changed){
+    SUBCAT_TEMPLATES[cat] = tmpl;
+    callSheet('saveSubcatTemplate', {cat:cat, data:JSON.stringify(tmpl)}, function(){});
   }
 }
 
