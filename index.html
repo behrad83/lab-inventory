@@ -330,6 +330,12 @@ tr:hover td{background:#0e1018}
           <div style="font-size:11px;color:#5a6080;margin-top:4px">💡 کد کالا خودکار ساخته می‌شود — بارکد فقط برای اسکن سریع است</div>
         </div>
         <div class="form-group">
+          <label>زیردسته‌ها (اختیاری)</label>
+          <div id="ni-subcats"></div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addSubcatRow('ni-subcats')" style="margin-top:6px">+ افزودن زیردسته</button>
+          <div style="font-size:11px;color:#5a6080;margin-top:4px">💡 مثلاً: نوع رزین → استاندارد v2 | رنگ → سفید | برند → ...</div>
+        </div>
+        <div class="form-group">
           <label>توضیحات</label>
           <textarea class="inp" id="ni-desc" placeholder="مشخصات فنی، برند، کاربرد..." rows="3" style="resize:vertical"></textarea>
         </div>
@@ -534,7 +540,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbzXfIKNK7-41OJ_zhF3TrtXmOIwdkOHiXjxfs3lFrprGL6BQSp5XJ4uXXijEmHKyTpz/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbwNn6KAQ_ibNDRJ_kJ82Jwhl4MKxMFaSb0Wue8HJWXUaTRBuhdC4e6HznzF-ZF4ack/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -668,7 +674,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbzXfIKNK7-41OJ_zhF3TrtXmOIwdkOHiXjxfs3lFrprGL6BQSp5XJ4uXXijEmHKyTpz/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbwNn6KAQ_ibNDRJ_kJ82Jwhl4MKxMFaSb0Wue8HJWXUaTRBuhdC4e6HznzF-ZF4ack/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -1119,7 +1125,7 @@ function renderItems(){
   }
 
   var filtered = items.filter(function(i){
-    var matchSearch = !search || i.name.toLowerCase().includes(search) || i.code.toLowerCase().includes(search) || (i.desc||'').toLowerCase().includes(search);
+    var matchSearch = !search || i.name.toLowerCase().includes(search) || i.code.toLowerCase().includes(search) || (i.desc||'').toLowerCase().includes(search) || (i.subcats||'').toLowerCase().includes(search) || (i.status||'').toLowerCase().includes(search);
     var matchCat = !catF || i.cat === catF;
     return matchSearch && matchCat;
   });
@@ -1162,6 +1168,7 @@ function renderItems(){
         + (i.image?'<img src="'+i.image+'" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">':'<div style="width:36px;height:36px;background:#1e2235;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px">📦</div>')
         + '<div><div style="font-weight:500;font-size:13px">'+i.name+'</div>'
         + (i.desc?'<div style="color:#5a6080;font-size:11px">'+i.desc.slice(0,30)+'</div>':'')
+        + (function(){ var sc=[]; try{sc=JSON.parse(i.subcats||'[]');}catch(e){} sc=sc.filter(function(s){return s.v;}); return sc.length?'<div style="margin-top:3px">'+sc.map(function(s){return '<span style=\'background:#13151f;padding:0px 5px;border-radius:4px;font-size:9px;margin-left:3px;color:#6a7290\'>'+s.v+'</span>';}).join('')+'</div>':''; })()
         + '</div></div></td>'
         + '<td style="padding:8px;font-family:monospace;font-size:12px;color:#60a5fa">'+i.code+'</td>'
         + '<td style="padding:8px"><span style="background:#1e2235;padding:2px 8px;border-radius:8px;font-size:11px">'+i.cat+'</span></td>'
@@ -1240,6 +1247,7 @@ function openDetail(id){
       ${[
         ['دسته‌بندی', `<span style="color:${catColor}">${i.cat}</span>`],
         ['وضعیت کالا', statusBadge(i.status||'نو')],
+        ...((function(){ var sc=[]; try{sc=JSON.parse(i.subcats||'[]');}catch(e){} return sc.filter(function(s){return s.v;}).map(function(s){ return [s.k||'زیردسته', `<span style="color:#9aa3c2">${s.v}</span>`]; }); })()),
         ['موقعیت', `قفسه ${i.shelf} — ردیف ${i.row}`],
         ['موجودی', `<span style="color:${i.qty<=i.minQty?'#f87171':'#4ade80'};font-weight:700">${i.qty} ${i.unit}</span>`],
         ['حداقل موجودی', `${i.minQty} ${i.unit}`],
@@ -1320,6 +1328,11 @@ function openDetail(id){
         <label>بارکد محصول</label>
         <input class="inp" id="edit-barcode" value="${i.barcode||''}" placeholder="بارکد کارخانه (اختیاری)">
       </div>
+      <div class="form-group">
+        <label>زیردسته‌ها</label>
+        <div id="edit-subcats"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addSubcatRow('edit-subcats')" style="margin-top:6px">+ افزودن زیردسته</button>
+      </div>
       <div class="form-group" style="margin-top:8px">
         <label>عکس کالا</label>
         ${i.image?`<div style="margin-bottom:10px"><img src="${i.image}" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #1a1d2e;background:#0b0d14"></div>`:''}
@@ -1338,6 +1351,13 @@ function openDetail(id){
   `;
 
   document.getElementById('modal-detail').classList.remove('hidden');
+
+  // پر کردن زیردسته‌ها در فرم ویرایش
+  if(isAdmin){
+    var iSubcats = [];
+    try { iSubcats = JSON.parse(i.subcats||'[]'); } catch(e){ iSubcats = []; }
+    setTimeout(function(){ fillSubcats('edit-subcats', iSubcats); }, 50);
+  }
 
   // Generate QR
   setTimeout(function(){
@@ -1368,12 +1388,13 @@ function saveEdit(id){
   const status=statusEl?statusEl.value:'نو';
   const bcEl=document.getElementById('edit-barcode');
   const barcode=bcEl?bcEl.value.trim():'';
+  const subcats=JSON.stringify(getSubcats('edit-subcats'));
 
   if(!name){alert('نام کالا الزامی است');return;}
 
   const item=items.find(function(i){return i.id===id;});
   if(!item)return;
-  const updated = Object.assign({},item,{name,desc,shelf,row,qty,minQty,cat,status,barcode});
+  const updated = Object.assign({},item,{name,desc,shelf,row,qty,minQty,cat,status,barcode,subcats});
 
   // بررسی لینک عکس جدید
   const imgUrlInput = document.getElementById('edit-image-url-'+id);
@@ -1656,6 +1677,7 @@ function loadFromSheet(){
         cat:String(d.cat||'آزمایشگاه'), qty:Number(d.qty)||0, unit:String(d.unit||'عدد'),
         status:String(d.status||'نو'),
         barcode:String(d.barcode||''),
+        subcats:String(d.subcats||''),
         shelf:String(d.shelf||'-'), row:String(d.row||'-'), minQty:Number(d.minQty)||0, date:String(d.date||''), image:String(d.image||'')
       }));
       saveItems();
@@ -2028,6 +2050,7 @@ function addItem(){
   const statusEl=document.getElementById('ni-status');
   var barcodeInp = document.getElementById('ni-barcode');
   var barcode = barcodeInp ? barcodeInp.value.trim() : '';
+  var subcats = getSubcats('ni-subcats');
   const item={
     id,code,name,
     desc:document.getElementById('ni-desc').value.trim(),
@@ -2037,6 +2060,7 @@ function addItem(){
     minQty:parseInt(document.getElementById('ni-min').value)||0,
     status:(statusEl?statusEl.value:'نو'),
     barcode:barcode,
+    subcats:JSON.stringify(subcats),
     date:new Date().toLocaleDateString('fa-IR'),
     image:''
   };
@@ -2081,6 +2105,7 @@ function clearAddForm(keepResult){
     const el=document.getElementById(id);if(el)el.value='';
   });
   var stEl=document.getElementById('ni-status');if(stEl)stEl.value='نو';
+  var scEl=document.getElementById('ni-subcats');if(scEl)scEl.innerHTML='';
   const niPrev = document.getElementById('ni-img-preview');
   if(niPrev) niPrev.style.display='none';
   if(!keepResult){
@@ -2397,6 +2422,7 @@ function submitChange(type, itemId, data){
     image: data.image||'',
     status: data.status||'نو',
     barcode: data.barcode||'',
+    subcats: data.subcats||'',
     // داده اصلی برای مقایسه
     _orig_qty: original ? original.qty : null,
     _orig_name: original ? original.name : null,
@@ -3708,6 +3734,50 @@ var _scanMode = 'search'; // 'search' یا 'fill'
 function scanBarcodeForAdd(){
   _scanMode = 'fill';
   openScanner();
+}
+
+// ── مدیریت زیردسته‌ها ──
+
+function addSubcatRow(containerId, key, val){
+  var container = document.getElementById(containerId);
+  if(!container) return;
+  var row = document.createElement('div');
+  row.className = 'subcat-row';
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.innerHTML =
+    '<input class="inp subcat-key" placeholder="عنوان (مثل رنگ)" value="'+(key||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:8px 10px;font-size:13px">'
+    + '<input class="inp subcat-val" placeholder="مقدار (مثل سفید)" value="'+(val||'').replace(/"/g,'&quot;')+'" style="flex:1;padding:8px 10px;font-size:13px">'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentNode.remove()" style="color:#f87171;padding:6px 10px">🗑️</button>';
+  container.appendChild(row);
+}
+
+function getSubcats(containerId){
+  var container = document.getElementById(containerId);
+  if(!container) return [];
+  var rows = container.querySelectorAll('.subcat-row');
+  var result = [];
+  rows.forEach(function(r){
+    var k = r.querySelector('.subcat-key').value.trim();
+    var v = r.querySelector('.subcat-val').value.trim();
+    if(k || v) result.push({k:k, v:v});
+  });
+  return result;
+}
+
+function fillSubcats(containerId, subcats){
+  var container = document.getElementById(containerId);
+  if(!container) return;
+  container.innerHTML = '';
+  if(subcats && subcats.length){
+    subcats.forEach(function(s){ addSubcatRow(containerId, s.k, s.v); });
+  }
+}
+
+function renderSubcatsBadges(subcats){
+  if(!subcats || !subcats.length) return '';
+  return subcats.map(function(s){
+    return '<span style="background:#1a1d2e;color:#9aa3c2;padding:1px 7px;border-radius:6px;font-size:10px;margin-left:4px">'+(s.k?s.k+': ':'')+s.v+'</span>';
+  }).join('');
 }
 </script>
 </body>
