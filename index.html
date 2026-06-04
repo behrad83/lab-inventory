@@ -501,6 +501,18 @@ tr:hover td{background:#0e1018}
     <div id="view-setup" class="hidden">
       <div class="page-title">⚙️ تنظیمات و راه‌اندازی آنلاین</div>
 
+      <!-- بکاپ -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div style="font-weight:600;font-size:15px;color:#4ade80">💾 بکاپ و بازگردانی</div>
+          <button class="btn btn-primary btn-sm" onclick="createBackup()">+ گرفتن بکاپ جدید</button>
+        </div>
+        <div style="font-size:12px;color:#5a6080;margin-bottom:12px;line-height:1.7">
+          بکاپ شامل همه داده‌ها (کالاها، کاربران، درخواست‌ها، دسته‌ها) است و در Google Sheet ذخیره می‌شود. بکاپ خودکار هر ۲ روز گرفته می‌شود.
+        </div>
+        <div id="backupsList"><div style="color:#5a6080;font-size:13px;text-align:center;padding:16px">در حال بارگذاری...</div></div>
+      </div>
+
       <div class="card" style="margin-bottom:16px">
         <div style="font-weight:600;font-size:15px;margin-bottom:14px;color:#c084fc">🌐 آنلاین کردن برنامه — قدم به قدم</div>
 
@@ -552,7 +564,7 @@ function doPost(e){
           <div>
             <div style="font-weight:600;font-size:13px;margin-bottom:4px">وارد کردن لینک API</div>
             <div style="font-size:12px;color:#5a6080;margin-bottom:8px">لینک Deploy شده را اینجا وارد کنید:</div>
-            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbwNn6KAQ_ibNDRJ_kJ82Jwhl4MKxMFaSb0Wue8HJWXUaTRBuhdC4e6HznzF-ZF4ack/exec" oninput="saveSheetUrl()" style="font-size:12px">
+            <input class="inp" id="sheetUrl" placeholder="https://script.google.com/macros/s/AKfycbzKSuFWwhR2g0ZLlvnDVXUvAY6hawnRaaaMzfOOvjWQ-c5J_KyisEUxXbIO-RZNgbRd/exec" oninput="saveSheetUrl()" style="font-size:12px">
             <div id="sheetStatus" style="font-size:12px;margin-top:6px;color:#5a6080"></div>
           </div>
         </div>
@@ -686,7 +698,7 @@ function saveSheetUrl(){
   localStorage.setItem('sheetUrl',document.getElementById('sheetUrl').value);
   document.getElementById('sheetStatus').textContent='✅ لینک ذخیره شد';
 }
-const SHEET_URL='https://script.google.com/macros/s/AKfycbwNn6KAQ_ibNDRJ_kJ82Jwhl4MKxMFaSb0Wue8HJWXUaTRBuhdC4e6HznzF-ZF4ack/exec';
+const SHEET_URL='https://script.google.com/macros/s/AKfycbzKSuFWwhR2g0ZLlvnDVXUvAY6hawnRaaaMzfOOvjWQ-c5J_KyisEUxXbIO-RZNgbRd/exec';
 function loadSheetUrl(){return localStorage.getItem('sheetUrl')||SHEET_URL;}
 
 // ═══════════════════════════════════════════════
@@ -1084,6 +1096,7 @@ function gotoView(v,el){
   else if(v==='setup'){
     document.getElementById('sheetUrl').value=loadSheetUrl();
     renderUserList();
+    loadBackups();
   }
 }
 
@@ -3981,6 +3994,152 @@ function renderSubcatsBadges(subcats){
   return subcats.map(function(s){
     return '<span style="background:#1a1d2e;color:#9aa3c2;padding:1px 7px;border-radius:6px;font-size:10px;margin-left:4px">'+(s.k?s.k+': ':'')+s.v+'</span>';
   }).join('');
+}
+
+// ── سیستم بکاپ و بازگردانی ──
+
+var BACKUPS = [];
+
+function loadBackups(){
+  if(!canDo('users')) return;
+  var el = document.getElementById('backupsList');
+  callSheet('getBackups', {t:Date.now()}, function(data){
+    if(Array.isArray(data)){
+      BACKUPS = data;
+      renderBackups();
+    } else if(el){
+      el.innerHTML = '<div style="color:#f87171;font-size:13px;text-align:center;padding:16px">خطا در بارگذاری بکاپ‌ها</div>';
+    }
+  });
+}
+
+function renderBackups(){
+  var el = document.getElementById('backupsList');
+  if(!el) return;
+  if(!BACKUPS.length){
+    el.innerHTML = '<div style="color:#5a6080;font-size:13px;text-align:center;padding:16px">هنوز بکاپی گرفته نشده</div>';
+    return;
+  }
+  el.innerHTML = BACKUPS.map(function(b){
+    var isAuto = b.by === 'auto' || b.by === 'system';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:#0b0d14;border:1px solid #1a1d2e;border-radius:10px;margin-bottom:8px">'
+      + '<div style="width:36px;height:36px;background:'+(isAuto?'#1a2a3a':'#1a3a2a')+';border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+(isAuto?'🔄':'💾')+'</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;color:#e2e4f0">'+b.date+'</div>'
+      + '<div style="font-size:11px;color:#5a6080">'+(b.by==='auto'?'خودکار':b.by==='system'?'سیستم':'توسط '+b.by)+'</div>'
+      + '</div>'
+      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#4ade80;padding:6px 10px" onclick="startRestore(&quot;'+b.id+'&quot;,&quot;'+b.date+'&quot;)">↩️ بازگردانی</button>'
+      + '<button class="btn btn-ghost btn-sm" style="font-size:11px;color:#f87171;padding:6px 8px" onclick="deleteBackup(&quot;'+b.id+'&quot;)">🗑️</button>'
+      + '</div>';
+  }).join('');
+}
+
+function createBackup(){
+  if(!canDo('users')){ showToast('فقط ادمین'); return; }
+  showToast('💾 در حال گرفتن بکاپ...');
+  callSheet('createBackup', {by: currentUser.user}, function(res){
+    if(res && res.status==='ok'){
+      showToast('✅ بکاپ گرفته شد');
+      loadBackups();
+    } else {
+      showToast('❌ خطا در بکاپ');
+    }
+  });
+}
+
+function deleteBackup(id){
+  if(!confirm('این بکاپ حذف شود؟')) return;
+  callSheet('deleteBackup', {id:id}, function(res){
+    if(res && res.status==='ok'){
+      BACKUPS = BACKUPS.filter(function(b){ return b.id!==id; });
+      renderBackups();
+      showToast('🗑️ بکاپ حذف شد');
+    }
+  });
+}
+
+// ── بازگردانی با تأیید امن ──
+
+var _restoreId = null;
+var _restoreCountdown = null;
+var CONFIRM_TEXT = 'داده‌های فعلی با نسخه قدیمی جایگزین میشن و هر چیزی که بعد از اون بکاپ اضافه شده پاک میشه.';
+
+function startRestore(id, date){
+  if(!canDo('users')){ showToast('فقط ادمین'); return; }
+  _restoreId = id;
+  var modal = document.getElementById('restoreModal');
+  if(modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'restoreModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
+  modal.innerHTML = '<div style="background:#13151f;border:1px solid #4a1515;border-radius:16px;padding:22px;max-width:460px;width:100%">'
+    + '<div style="font-size:16px;font-weight:700;color:#f87171;margin-bottom:8px">⚠️ بازگردانی بکاپ</div>'
+    + '<div style="font-size:12px;color:#9aa3c2;margin-bottom:14px">بکاپ: '+date+'</div>'
+    + '<div style="background:#1a1010;border:1px solid #4a1515;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;color:#f87171;line-height:1.8;user-select:none">'+CONFIRM_TEXT+'</div>'
+    + '<label style="font-size:12px;color:#9aa3c2;display:block;margin-bottom:6px">برای تأیید، متن بالا را <b>دقیقاً</b> تایپ کنید (کپی ممکن نیست):</label>'
+    + '<textarea id="restoreConfirmInput" class="inp" style="width:100%;box-sizing:border-box;min-height:70px;resize:none;font-family:inherit" oninput="checkRestoreText()" onpaste="return false" oncopy="return false" oncut="return false" placeholder="متن را اینجا تایپ کنید..."></textarea>'
+    + '<div id="restoreCountdownBox" style="display:none;text-align:center;margin:12px 0;color:#f59e0b;font-size:13px"></div>'
+    + '<div style="display:flex;gap:8px;margin-top:14px">'
+    + '<button id="restoreFinalBtn" class="btn" style="flex:1;background:#4a1515;color:#f87171;opacity:0.5;pointer-events:none" onclick="doRestore()">تأیید نهایی</button>'
+    + '<button class="btn btn-ghost" onclick="cancelRestore()">کنسل</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+}
+
+function checkRestoreText(){
+  var inp = document.getElementById('restoreConfirmInput');
+  if(!inp) return;
+  if(inp.value.trim() === CONFIRM_TEXT){
+    // متن درسته - شمارش معکوس شروع شه
+    inp.disabled = true;
+    inp.style.borderColor = '#4ade80';
+    startRestoreCountdown();
+  }
+}
+
+function startRestoreCountdown(){
+  var box = document.getElementById('restoreCountdownBox');
+  var btn = document.getElementById('restoreFinalBtn');
+  if(box) box.style.display = 'block';
+  var remaining = 60;
+  if(box) box.textContent = '⏳ دکمه تأیید نهایی تا ' + remaining + ' ثانیه دیگر فعال می‌شود (در صورت پشیمانی کنسل کنید)';
+  _restoreCountdown = setInterval(function(){
+    remaining--;
+    if(remaining > 0){
+      if(box) box.textContent = '⏳ دکمه تأیید نهایی تا ' + remaining + ' ثانیه دیگر فعال می‌شود';
+    } else {
+      clearInterval(_restoreCountdown);
+      if(box){ box.textContent = '✅ حالا می‌توانید تأیید نهایی را بزنید'; box.style.color = '#4ade80'; }
+      if(btn){ btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.style.background = '#dc2626'; btn.style.color = '#fff'; }
+    }
+  }, 1000);
+}
+
+function cancelRestore(){
+  if(_restoreCountdown) clearInterval(_restoreCountdown);
+  _restoreId = null;
+  var modal = document.getElementById('restoreModal');
+  if(modal) modal.remove();
+  showToast('بازگردانی لغو شد');
+}
+
+function doRestore(){
+  if(!_restoreId) return;
+  var modal = document.getElementById('restoreModal');
+  if(modal) modal.remove();
+  if(_restoreCountdown) clearInterval(_restoreCountdown);
+  showToast('↩️ در حال بازگردانی...');
+  callSheet('restoreBackup', {id: _restoreId}, function(res){
+    if(res && res.status==='ok'){
+      showToast('✅ بازگردانی انجام شد — در حال بارگذاری مجدد');
+      setTimeout(function(){ refreshAll(); }, 1500);
+    } else {
+      showToast('❌ خطا در بازگردانی');
+    }
+    _restoreId = null;
+  });
 }
 </script>
 </body>
