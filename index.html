@@ -460,6 +460,21 @@ tr:hover td{background:#0e1018}
       <div class="card">
         <div style="font-weight:600;font-size:14px;margin-bottom:14px">✅ کاربران فعال</div>
         <div id="activeUserList"></div>
+        <div style="margin-top:14px;border-top:1px solid #1a1d2e;padding-top:14px">
+          <div style="font-size:12px;color:#5a6080;margin-bottom:10px">افزودن کاربر مستقیم</div>
+          <div class="grid2" style="margin-bottom:10px">
+            <input class="inp" id="newUserName" placeholder="نام کاربری">
+            <input class="inp" id="newUserPass" placeholder="رمز عبور" type="password">
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select class="inp" id="newUserRole">
+              <option value="viewer">فقط مشاهده</option>
+              <option value="operator">افزودن و جستجو</option>
+              <option value="admin">ادمین کامل</option>
+            </select>
+            <button class="btn btn-success btn-sm" onclick="addUserDirect()" style="white-space:nowrap">+ افزودن</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -567,16 +582,6 @@ function doPost(e){
         </div>
       </div>
 
-      <div class="card">
-        <div style="font-weight:600;font-size:14px;margin-bottom:14px">👥 مدیریت کاربران</div>
-        <div style="font-size:12px;color:#5a6080;margin-bottom:12px">کاربران و رمزهای عبور (در نسخه آنلاین باید در سرور ذخیره شود)</div>
-        <div id="userList"></div>
-        <div class="row" style="margin-top:12px">
-          <input class="inp" id="newUser" placeholder="نام کاربری" style="flex:1">
-          <input class="inp" id="newPass" placeholder="رمز عبور" type="password" style="flex:1">
-          <button class="btn btn-success btn-sm" onclick="addUser()">+ افزودن</button>
-        </div>
-      </div>
     </div>
 
   </div>
