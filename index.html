@@ -169,6 +169,16 @@ tr:hover td{background:#0e1018}
 /* ── BRAND LOGO ── */
 .iprint-brand{font-family:'Quicksand',sans-serif;font-weight:700;letter-spacing:-1px;direction:ltr;display:inline-block}
 .iprint-brand .dot{color:#e63946}
+
+/* ── SUBCAT COMBOBOX ── */
+.combo-wrap{position:relative;flex:1}
+.combo-input{width:100%;box-sizing:border-box}
+.combo-dropdown{position:absolute;top:100%;left:0;right:0;background:#1a1d2e;border:1px solid #2a2f45;border-radius:10px;margin-top:4px;max-height:180px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.4);display:none}
+.combo-dropdown.open{display:block}
+.combo-opt{padding:10px 12px;font-size:13px;color:#e2e4f0;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.combo-opt:hover{background:#252b42}
+.combo-opt .del-opt{color:#f87171;font-size:12px;opacity:0.6;padding:0 4px}
+.combo-opt .del-opt:hover{opacity:1}
 </style>
 </head>
 <body>
@@ -2043,9 +2053,6 @@ function toggleUnit(){
   if(unitRow) unitRow.style.display = isResin ? 'flex' : 'none';
   if(badge) badge.textContent = isResin ? 'گرم' : 'عدد';
   if(qtyLabel) qtyLabel.textContent = isResin ? 'حجم/وزن موجودی *' : 'تعداد موجودی *';
-  // آپدیت datalist زیردسته‌ها بر اساس دسته انتخاب‌شده
-  var dlContainer = document.getElementById('ni-subcats-datalists');
-  if(dlContainer) dlContainer.innerHTML = buildDatalists(cat.value);
 }
 
 function addItem(){
@@ -3811,35 +3818,113 @@ function addSubcatRow(containerId, key, val){
   var cat = getCurrentFormCat(prefix);
   var tmpl = SUBCAT_TEMPLATES[cat] || {keys:[], values:{}};
 
-  var rowId = 'sc_' + Date.now() + '_' + Math.floor(Math.random()*1000);
   var row = document.createElement('div');
   row.className = 'subcat-row';
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:8px';
+  row.style.cssText = 'display:flex;gap:6px;align-items:flex-start;margin-bottom:8px';
 
   var keyVal = (key||'').replace(/"/g,'&quot;');
   var valVal = (val||'').replace(/"/g,'&quot;');
-  var valListId = key ? ('dl-val-' + encodeURIComponent(key).replace(/[^a-zA-Z0-9]/g,'')) : '';
 
   row.innerHTML =
-    '<input class="inp subcat-key" list="dl-keys" placeholder="عنوان (مثل رنگ)" value="'+keyVal+'" style="flex:1;padding:9px 11px;font-size:13px;border-radius:9px" oninput="onSubcatKeyChange(this)">'
-    + '<input class="inp subcat-val" '+(valListId?'list="'+valListId+'"':'')+' placeholder="مقدار (مثل سفید)" value="'+valVal+'" style="flex:1;padding:9px 11px;font-size:13px;border-radius:9px">'
-    + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentNode.remove()" style="color:#f87171;padding:7px 11px;flex-shrink:0">🗑️</button>';
+    '<div class="combo-wrap">'
+    + '<input class="inp combo-input subcat-key" placeholder="عنوان (مثل رنگ)" value="'+keyVal+'" style="padding:9px 11px;font-size:13px;border-radius:9px" '
+    + 'onfocus="openComboKey(this)" oninput="openComboKey(this);refreshValCombo(this)" autocomplete="off">'
+    + '<div class="combo-dropdown"></div>'
+    + '</div>'
+    + '<div class="combo-wrap">'
+    + '<input class="inp combo-input subcat-val" placeholder="مقدار (مثل سفید)" value="'+valVal+'" style="padding:9px 11px;font-size:13px;border-radius:9px" '
+    + 'onfocus="openComboVal(this)" oninput="openComboVal(this)" autocomplete="off">'
+    + '<div class="combo-dropdown"></div>'
+    + '</div>'
+    + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentNode.remove()" style="color:#f87171;padding:9px 11px;flex-shrink:0">🗑️</button>';
   container.appendChild(row);
 }
 
-function onSubcatKeyChange(input){
-  // وقتی عنوان عوض شد، datalist مقدار رو آپدیت کن
-  var key = input.value.trim();
-  var valInput = input.parentNode.querySelector('.subcat-val');
-  if(valInput && key){
-    var safeId = 'dl-val-' + encodeURIComponent(key).replace(/[^a-zA-Z0-9]/g,'');
-    if(document.getElementById(safeId)){
-      valInput.setAttribute('list', safeId);
-    } else {
-      valInput.removeAttribute('list');
+function getRowCat(input){
+  var container = input.closest('#ni-subcats') ? 'ni' : 'edit';
+  return getCurrentFormCat(container);
+}
+
+function openComboKey(input){
+  var cat = getRowCat(input);
+  var tmpl = SUBCAT_TEMPLATES[cat] || {keys:[], values:{}};
+  var dd = input.parentNode.querySelector('.combo-dropdown');
+  var typed = input.value.trim().toLowerCase();
+  var opts = (tmpl.keys||[]).filter(function(k){ return !typed || k.toLowerCase().indexOf(typed)>=0; });
+  renderCombo(dd, opts, input, 'key', cat);
+}
+
+function openComboVal(input){
+  var cat = getRowCat(input);
+  var tmpl = SUBCAT_TEMPLATES[cat] || {keys:[], values:{}};
+  var keyInput = input.parentNode.parentNode.querySelector('.subcat-key');
+  var key = keyInput ? keyInput.value.trim() : '';
+  var dd = input.parentNode.querySelector('.combo-dropdown');
+  var vals = (tmpl.values && tmpl.values[key]) ? tmpl.values[key] : [];
+  var typed = input.value.trim().toLowerCase();
+  var opts = vals.filter(function(v){ return !typed || v.toLowerCase().indexOf(typed)>=0; });
+  renderCombo(dd, opts, input, 'val', cat, key);
+}
+
+function refreshValCombo(keyInput){
+  // وقتی عنوان عوض شد، اگه dropdown مقدار باز بود ببند
+  var valInput = keyInput.parentNode.parentNode.querySelector('.subcat-val');
+  if(valInput){
+    var dd = valInput.parentNode.querySelector('.combo-dropdown');
+    if(dd) dd.classList.remove('open');
+  }
+}
+
+function renderCombo(dd, opts, input, type, cat, key){
+  if(!dd) return;
+  if(!opts.length){ dd.classList.remove('open'); dd.innerHTML=''; return; }
+  dd.innerHTML = opts.map(function(o){
+    var safe = o.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return '<div class="combo-opt" onmousedown="event.preventDefault();selectCombo(this,&quot;'+safe+'&quot;)">'
+      + '<span>'+o+'</span>'
+      + '<span class="del-opt" onmousedown="event.preventDefault();event.stopPropagation();delComboOpt(&quot;'+type+'&quot;,&quot;'+(cat||'').replace(/"/g,'&quot;')+'&quot;,&quot;'+(key||'').replace(/"/g,'&quot;')+'&quot;,&quot;'+safe+'&quot;,this)">✕</span>'
+      + '</div>';
+  }).join('');
+  dd.classList.add('open');
+  dd._input = input;
+}
+
+function selectCombo(optEl, value){
+  var dd = optEl.closest('.combo-dropdown');
+  if(dd && dd._input){
+    dd._input.value = value;
+    dd.classList.remove('open');
+    // اگه عنوان انتخاب شد، dropdown مقدار رو ریست کن
+    if(dd._input.classList.contains('subcat-key')){
+      var valInput = dd._input.parentNode.parentNode.querySelector('.subcat-val');
+      if(valInput){ var vdd = valInput.parentNode.querySelector('.combo-dropdown'); if(vdd) vdd.classList.remove('open'); }
     }
   }
 }
+
+function delComboOpt(type, cat, key, value, el){
+  if(!confirm('حذف «'+value+'» از لیست پیشنهادها؟')) return;
+  var tmpl = SUBCAT_TEMPLATES[cat];
+  if(!tmpl) return;
+  if(type === 'key'){
+    tmpl.keys = tmpl.keys.filter(function(k){ return k !== value; });
+    delete tmpl.values[value];
+  } else {
+    if(tmpl.values[key]) tmpl.values[key] = tmpl.values[key].filter(function(v){ return v !== value; });
+  }
+  // حذف ردیف از dropdown
+  var optDiv = el.closest('.combo-opt');
+  if(optDiv) optDiv.remove();
+  showToast('🗑️ از لیست حذف شد');
+}
+
+// بستن dropdown با کلیک بیرون
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.combo-wrap')){
+    document.querySelectorAll('.combo-dropdown.open').forEach(function(d){ d.classList.remove('open'); });
+  }
+});
+
 
 function getSubcats(containerId){
   var container = document.getElementById(containerId);
@@ -3858,11 +3943,6 @@ function fillSubcats(containerId, subcats){
   var container = document.getElementById(containerId);
   if(!container) return;
   container.innerHTML = '';
-  // datalist ها رو بساز
-  var prefix = containerId === 'ni-subcats' ? 'ni' : 'edit';
-  var cat = getCurrentFormCat(prefix);
-  var dlContainer = document.getElementById(containerId+'-datalists');
-  if(dlContainer) dlContainer.innerHTML = buildDatalists(cat);
   if(subcats && subcats.length){
     subcats.forEach(function(s){ addSubcatRow(containerId, s.k, s.v); });
   }
